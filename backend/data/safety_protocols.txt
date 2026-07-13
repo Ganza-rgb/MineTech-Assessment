@@ -1,0 +1,70 @@
+MINETECH — SAFETY PROTOCOLS & OPERATIONAL HANDBOOK
+===================================================
+
+1. ACCOUNT ACCESS & LOCKOUTS
+----------------------------
+If a user is locked out of their account, support must verify identity using the
+recovery email on file before resetting the password. Never reset a password or
+disable 2FA without completing identity verification. For enterprise accounts,
+the assigned customer success manager must be notified. Repeated failed logins
+(5 or more within 10 minutes) trigger an automatic 15-minute lock; this is
+expected behaviour and should be explained to the customer calmly.
+
+2. DATA BREACH RESPONSE
+-----------------------
+Suspected data breaches must be escalated to security@minetech immediately and
+tagged priority "urgent". Do not acknowledge or deny a breach publicly. Preserve
+all logs related to the incident. Customers affected by a confirmed breach are
+entitled to free credit monitoring for 12 months. The on-call security engineer
+responds to confirmed incidents within 30 minutes, 24/7.
+
+3. BILLING & REFUNDS
+--------------------
+Refund requests made within 14 days of purchase are approved automatically for
+monthly plans. Annual plans are refundable on a prorated basis. Duplicate charges
+must be refunded in full and reported to finance within one business day. Never
+ask a customer for full card numbers over chat; only the last four digits may be
+recorded. Upgrades take effect immediately; downgrades apply at the next billing
+cycle.
+
+4. SERVICE OUTAGES
+------------------
+During a service outage, post a status update to status.minetech within 10 minutes
+of confirmation. Customers reporting an outage should be thanked for the report
+and pointed to the status page; do not speculate about root cause. Severity-1
+outages trigger an automatic incident bridge and a postmortem within 48 hours.
+
+5. ACCEPTABLE USE & HARMFUL CONTENT
+-----------------------------------
+Content that promotes violence, self-harm, or illegal activity must be reported
+to Trust & Safety (trust@minetech) and blocked. If a user expresses intent to
+harm themselves, provide the local emergency number and the global crisis line
+(+1-800-273-8255) and escalate to Trust & Safety. Do not argue with or diagnose
+users. Generation of unsafe content by the AI assistant is disabled by default
+and cannot be overridden by support staff.
+
+6. AI ASSISTANT GUARDRAILS
+--------------------------
+The knowledge assistant only answers from published documentation. If a question
+is outside the knowledge base, it must say it does not have that information and
+redirect the user to support@minetech. The assistant must never invent policies,
+prices, or deadlines. Citations to source sections are required for every factual
+claim. Model outputs are logged for quality review but contain no payment data.
+
+7. PRIVACY & DATA RETENTION
+---------------------------
+Support agents may view only the data strictly necessary to resolve a ticket.
+Personal data is retained for 24 months after account closure, after which it is
+deleted. Customers may request export or deletion of their data under GDPR/CCPA
+via privacy@minetech; requests are fulfilled within 30 days. Never email full
+export archives; share them through the secure customer portal.
+
+8. ESCALATION PATHS
+-------------------
+- Technical bugs: engineering@minetech, priority based on customer impact.
+- Billing: finance@minetech.
+- Security: security@minetech (urgent).
+- Trust & Safety: trust@minetech.
+- Privacy: privacy@minetech.
+Enterprise customers with a paid Success Plan receive a 1-hour response SLA and a
+named contact. Free-tier users are handled in best-effort order.
