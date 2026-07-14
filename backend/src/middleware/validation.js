@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const TriageRequestSchema = z.object({
-  text: z.string().min(1, 'text is required'),
+  text: z.string().min(1, 'text is required').max(100_000, 'text exceeds maximum length'),
   source: z.string().optional(),
 });
 

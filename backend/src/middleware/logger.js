@@ -1,4 +1,4 @@
-const { randomUUID } = require('crypto');
+import { randomUUID } from 'node:crypto';
 
 const colors = {
   reset: '\x1b[0m',
