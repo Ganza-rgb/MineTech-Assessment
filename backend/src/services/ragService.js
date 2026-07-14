@@ -168,6 +168,23 @@ export async function retrieve(query, topK = config.rag.topK) {
 export async function answer(query) {
   const ai = await getAI();
   const mode = getMode();
+
+  if (mode === 'cloud') {
+    const modelOut = await ai.generate({
+      system: SYSTEM_INSTRUCTIONS,
+      prompt: query,
+      temperature: 0.7,
+    });
+
+    return {
+      content: modelOut.trim(),
+      citations: [],
+      grounded: false,
+      confidence: 0,
+      provider: mode,
+    };
+  }
+
   const { relevant } = await retrieve(query);
 
   let systemPrompt = SYSTEM_INSTRUCTIONS;
@@ -176,7 +193,14 @@ export async function answer(query) {
   let grounded = false;
   let confidence = 0;
 
-  if (relevant.length > 0) {
+  if (relevant.length === 0) {
+    modelOut = await ai.generate({
+      system: systemPrompt,
+      prompt: query,
+      temperature: 0.7,
+    });
+    confidence = 0;
+  } else {
     const context = relevant
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
@@ -203,13 +227,6 @@ export async function answer(query) {
     citations = usedCitations;
     grounded = citations.length > 0;
     confidence = Number(relevant[0].cosine.toFixed(3));
-  } else {
-    modelOut = await ai.generate({
-      system: systemPrompt,
-      prompt: query,
-      temperature: 0.7,
-    });
-    confidence = 0;
   }
 
   return {

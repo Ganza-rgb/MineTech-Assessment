@@ -66,17 +66,16 @@ class CloudAI {
 
 let _ai = null;
 let _currentMode = null;
+let _loading = false;
 
 export async function getAI() {
   if (_ai && _currentMode === 'cloud') return _ai;
+  if (_loading) return _ai;
+  _loading = true;
   _currentMode = 'cloud';
   _ai = new CloudAI();
-  try {
-    await _ai.health();
-  } catch (err) {
-    console.warn('[ai] health check failed:', err.message);
-  }
   console.log('[ai] Using cloud model (SDK)');
+  _loading = false;
   return _ai;
 }
 
