@@ -19,7 +19,7 @@ export const config = {
 
   // LLM Mode: 'local', 'cloud', or 'auto' (auto switches based on network)
   llm: {
-    mode: process.env.LLM_MODE || 'auto', // 'local' | 'cloud' | 'auto'
+    mode: process.env.LLM_MODE || 'cloud', // 'local' | 'cloud' | 'auto'
     cloudProvider: process.env.CLOUD_PROVIDER || 'hf', // 'hf' = Hugging Face Inference API
     cloudApiUrl: process.env.CLOUD_API_URL || 'https://api-inference.huggingface.co',
     cloudApiKey: process.env.CLOUD_API_KEY || '', // Add your HF token here

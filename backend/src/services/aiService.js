@@ -5,7 +5,14 @@ class CloudAI {
   constructor() {
     this.mode = 'cloud';
     this.model = config.llm.cloudModel;
-    this.client = new HfInference(config.llm.cloudApiKey);
+    this.client = new HfInference(config.llm.cloudApiKey, {
+      fetch: (url, opts = {}) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 60000);
+        return fetch(url, { ...opts, signal: controller.signal })
+          .finally(() => clearTimeout(timer));
+      }
+    });
   }
 
   async generate({ system, prompt, temperature, maxTokens }) {
@@ -16,11 +23,8 @@ class CloudAI {
           { role: 'system', content: system || '' },
           { role: 'user', content: prompt },
         ],
-        parameters: {
-          temperature: Math.max(0.1, temperature ?? config.llm.temperature),
-          max_new_tokens: maxTokens ?? config.llm.maxTokens,
-          do_sample: (temperature ?? config.llm.temperature) > 0,
-        }
+        temperature: Math.max(0.1, temperature ?? config.llm.temperature),
+        max_tokens: maxTokens ?? config.llm.maxTokens,
       });
 
       return response.choices?.[0]?.message?.content || '';
@@ -31,15 +35,23 @@ class CloudAI {
   }
 
   async embed(text) {
-    try {
-      const response = await this.client.featureExtraction({
-        model: 'sentence-transformers/all-MiniLM-L6-v2',
-        inputs: text,
-      });
-      return Array.isArray(response) ? response : null;
-    } catch (err) {
-      console.warn('[ai] Embed error:', err.message);
-      return null;
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await this.client.featureExtraction({
+          model: 'sentence-transformers/all-MiniLM-L6-v2',
+          inputs: text,
+        });
+        if (!Array.isArray(response)) return null;
+        const vec = Array.isArray(response[0]) ? response[0] : response;
+        return Array.isArray(vec) ? vec : null;
+      } catch (err) {
+        if (attempt === 3) {
+          console.warn('[ai] Embed error:', err.message);
+          return null;
+        }
+        await delay(500 * attempt);
+      }
     }
   }
 
@@ -56,61 +68,15 @@ let _ai = null;
 let _currentMode = null;
 
 export async function getAI() {
-  if (config.llm.mode === 'cloud') {
-    if (!_ai || _currentMode !== 'cloud') {
-      try {
-        _currentMode = 'cloud';
-        _ai = new CloudAI();
-        await _ai.health();
-        console.log('[ai] Using cloud model (SDK)');
-      } catch (err) {
-        console.warn(`[ai] Cloud failed: ${err.message}, using local`);
-        _currentMode = 'local';
-        _ai = null;
-      }
-    }
-    if (_currentMode === 'cloud') return _ai;
+  if (_ai && _currentMode === 'cloud') return _ai;
+  _currentMode = 'cloud';
+  _ai = new CloudAI();
+  try {
+    await _ai.health();
+  } catch (err) {
+    console.warn('[ai] health check failed:', err.message);
   }
-
-  // Fallback to local
-  if (!_ai || _currentMode !== 'local') {
-    _currentMode = 'local';
-    try {
-      const { pipeline, env } = await import('@huggingface/transformers');
-      env.allowLocalModels = false;
-
-      const generator = await pipeline('text-generation', config.llm.hfModelId, {
-        dtype: config.llm.dtype,
-        device: config.llm.device,
-      });
-
-      const embedder = await pipeline('feature-extraction', config.llm.hfEmbedModelId, {
-        dtype: config.llm.dtype,
-        device: config.llm.device,
-      });
-
-      _ai = {
-        mode: 'local',
-        generate: async ({ prompt, temperature, maxTokens }) => {
-          const out = await generator([{ role: 'user', content: prompt }], {
-            max_new_tokens: maxTokens ?? config.llm.maxTokens,
-            do_sample: (temperature ?? config.llm.temperature) > 0,
-            temperature: temperature ?? config.llm.temperature,
-          });
-          return out[0]?.generated_text?.content || '';
-        },
-        embed: async (text) => {
-          const out = await embedder(text, { pooling: 'mean', normalize: true });
-          return Array.from(out.data);
-        },
-        health: async () => ({ ready: true, mode: 'local' })
-      };
-      console.log('[ai] Local model ready');
-    } catch (err) {
-      console.warn(`[ai] Local failed: ${err.message}`);
-      _ai = new MockAI();
-    }
-  }
+  console.log('[ai] Using cloud model (SDK)');
   return _ai;
 }
 

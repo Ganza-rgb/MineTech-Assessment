@@ -123,28 +123,43 @@ export async function retrieve(query, topK = config.rag.topK) {
 
   const ai = await getAI();
   const queryEmbedding = await ai.embed(query);
-  if (!queryEmbedding) return { results: [], relevant: [], queryEmbedding: null };
+  let scored = [];
 
-  // Optimized: just cosine similarity, no BM25
-  const scored = rows.map((r) => {
-    const emb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding;
-    return {
-      id: r.id,
-      document_id: r.document_id,
-      document: r.title,
-      chunk_index: r.chunk_index,
-      content: r.content,
-      cosine: cosine(queryEmbedding, emb),
-    };
-  });
+  if (queryEmbedding) {
+    scored = rows.map((r) => {
+      const emb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding;
+      return {
+        id: r.id,
+        document_id: r.document_id,
+        document: r.title,
+        chunk_index: r.chunk_index,
+        content: r.content,
+        cosine: cosine(queryEmbedding, emb),
+      };
+    });
+  } else {
+    const terms = tokenize(query);
+    scored = rows.map((r) => {
+      const tokens = tokenize(r.content);
+      const matches = terms.filter((t) => tokens.includes(t)).length;
+      return {
+        id: r.id,
+        document_id: r.document_id,
+        document: r.title,
+        chunk_index: r.chunk_index,
+        content: r.content,
+        cosine: terms.length ? matches / terms.length : 0,
+      };
+    });
+  }
 
   scored.sort((a, b) => b.cosine - a.cosine);
   const relevant = scored.filter((s) => s.cosine >= config.rag.similarityThreshold);
 
   return {
     results: scored.slice(0, topK).map((s, i) => ({ ...s, rank: i + 1 })),
-    relevant: relevant.slice(0, topK),
-    queryEmbedding,
+    relevant: scored.filter((s) => s.cosine >= config.rag.similarityThreshold).slice(0, topK),
+    queryEmbedding: queryEmbedding || null,
   };
 }
 
@@ -153,6 +168,23 @@ export async function retrieve(query, topK = config.rag.topK) {
 export async function answer(query) {
   const ai = await getAI();
   const mode = getMode();
+
+  if (mode === 'cloud') {
+    const modelOut = await ai.generate({
+      system: SYSTEM_INSTRUCTIONS,
+      prompt: query,
+      temperature: 0.7,
+    });
+
+    return {
+      content: modelOut.trim(),
+      citations: [],
+      grounded: false,
+      confidence: 1,
+      provider: mode,
+    };
+  }
+
   const { relevant } = await retrieve(query);
 
   let systemPrompt = SYSTEM_INSTRUCTIONS;
@@ -161,7 +193,14 @@ export async function answer(query) {
   let grounded = false;
   let confidence = 0;
 
-  if (relevant.length > 0) {
+  if (relevant.length === 0) {
+    modelOut = await ai.generate({
+      system: systemPrompt,
+      prompt: query,
+      temperature: 0.7,
+    });
+    confidence = 0;
+  } else {
     const context = relevant
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
@@ -188,13 +227,6 @@ export async function answer(query) {
     citations = usedCitations;
     grounded = citations.length > 0;
     confidence = Number(relevant[0].cosine.toFixed(3));
-  } else {
-    modelOut = await ai.generate({
-      system: systemPrompt,
-      prompt: query,
-      temperature: 0.7,
-    });
-    confidence = 0;
   }
 
   return {
