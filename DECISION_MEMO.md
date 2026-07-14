@@ -58,11 +58,10 @@ Why not BM25: simpler code, fewer dependencies, and sufficient for a small KB. I
 
 ## 5. Latency vs. hardware trade-offs
 
-- **Unified RAG path:** Both cloud and local modes run retrieval first (`retrieve()` → embed + cosine), then generate. This is the explicit trade-off: ~1–3s extra for grounding on cloud, but the assistant is now consistently grounded in the KB.
-- **Cloud mode:** One embed call + cosine similarity + one generate call. Typical latency: 3–6s on the free HF tier. If the embedding endpoint fails, keyword fallback keeps retrieval working without adding model calls.
-- **Local mode:** Full RAG on CPU, ~5–15s. Only used when cloud is unavailable or explicitly opted into.
-- `max_tokens: 128` keeps responses concise and latency low. I would raise this with streaming for production.
-- `topK: 4` for both modes — enough context for grounding without bloating the prompt.
+- **Cloud mode (default):** Skips the RAG retrieval loop and goes straight to `ai.generate()` — one HF API call, ~2–4s. Topic restriction is enforced via system prompt, not retrieval. This is the explicit trade-off: speed over grounding.
+- **Local mode:** Runs full RAG (embed query + cosine + generate), ~5–15s on CPU. Only used when cloud is unavailable or the user explicitly opts in.
+- `max_tokens: 128` keeps cloud latency low on the free tier. I would raise this with streaming for production.
+- `topK: 4` for local (more context for grounding).
 - CPU is the default device because it requires zero setup. WebGPU/WASM is one env var away when available.
 
 ---

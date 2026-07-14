@@ -163,11 +163,28 @@ export async function retrieve(query, topK = config.rag.topK) {
   };
 }
 
-/* ---- answer (grounded for all modes) ----------------------------- */
+/* ---- answer (fast cloud path + grounded local fallback) --------- */
 
 export async function answer(query) {
   const ai = await getAI();
   const mode = getMode();
+
+  if (mode === 'cloud') {
+    const modelOut = await ai.generate({
+      system: SYSTEM_INSTRUCTIONS,
+      prompt: query,
+      temperature: 0.7,
+    });
+
+    return {
+      content: modelOut.trim(),
+      citations: [],
+      grounded: false,
+      confidence: 0,
+      provider: mode,
+    };
+  }
+
   const { relevant } = await retrieve(query);
 
   let systemPrompt = SYSTEM_INSTRUCTIONS;

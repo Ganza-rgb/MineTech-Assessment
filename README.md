@@ -93,7 +93,7 @@ Open the frontend URL (default http://localhost:5173).
 | `local` | Loads ONNX weights via Transformers.js. Slower on CPU, works offline after first download. | Air-gapped environments; no HF token |
 | `mock` | Deterministic heuristic responses. No model needed. | CI / smoke testing |
 
-In **cloud mode**, the Knowledge Assistant runs RAG retrieval over the MySQL-backed knowledge base and grounds answers with citations when relevant docs are found. In **local mode**, it does the same with the local ONNX model.
+In **cloud mode**, the Knowledge Assistant answers directly from the model with topic restriction enforced via system prompt — fast, no retrieval overhead. In **local mode**, it runs full RAG retrieval over the MySQL-backed knowledge base with citations.
 
 ---
 
@@ -129,7 +129,7 @@ npm run ingest
 | POST | `/api/triage` | Classify/extract/draft one message → JSON |
 | GET | `/api/tickets` | List tickets (`?category&priority&status&q`) |
 | PATCH | `/api/tickets/:id` | Update status |
-| POST | `/api/rag/ask` | Grounded answer + citations (runs RAG in all modes) |
+| POST | `/api/rag/ask` | Answer + citations (cloud: fast, topic-restricted; local: grounded RAG) |
 | POST | `/api/rag/retrieve` | Raw retrieved passages (debug, local only) |
 | POST | `/api/rag/ingest` | Re-ingest `backend/data/*.txt` |
 | POST | `/api/rag/ingest/text` | Ingest an arbitrary pasted doc |
