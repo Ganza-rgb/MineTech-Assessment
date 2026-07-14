@@ -69,7 +69,6 @@ export default function TriageDashboard() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      {/* Input + result */}
       <section className="space-y-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -108,7 +107,6 @@ export default function TriageDashboard() {
         )}
       </section>
 
-      {/* Filterable table */}
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap gap-2">
           <select
@@ -155,9 +153,17 @@ export default function TriageDashboard() {
           </button>
         </div>
 
-        <div className="max-h-[32rem] overflow-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-white text-xs uppercase text-slate-400">
+        <div className="overflow-y-auto max-h-[32rem]">
+          <table className="w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-12" />
+              <col className="w-28" />
+              <col className="w-16" />
+              <col className="w-auto" />
+              <col className="w-14" />
+              <col className="w-32" />
+            </colgroup>
+            <thead className="sticky top-0 z-10 bg-white text-xs uppercase text-slate-400">
               <tr>
                 <th className="py-2 pr-2">#</th>
                 <th className="py-2 pr-2">Category</th>
@@ -247,7 +253,7 @@ function TicketRow({ t, open, onToggle, onStatus }) {
             {t.priority}
           </Badge>
         </td>
-        <td className="py-2 pr-2 text-slate-600">{t.summary}</td>
+        <td className="py-2 pr-2 text-slate-600 truncate">{t.summary}</td>
         <td className="py-2 pr-2 text-slate-400">{t.confidence}</td>
         <td className="py-2 pr-2">
           <select
