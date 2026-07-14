@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "ingest": "node src/services/ragService.js ingest",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "test": "node --test src/tests/smoke.test.js"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
+import { ChatSkeleton } from './Skeletons.jsx';
 
 const SUGGESTIONS = [
   'What should I do if a user is locked out of their account?',
@@ -13,7 +14,7 @@ export default function KnowledgeAssistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const containerRef = useRef(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const bottomRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -23,6 +24,10 @@ export default function KnowledgeAssistant() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
+  useEffect(() => {
+    api.ragStats().then(() => setInitialLoading(false)).catch(() => setInitialLoading(false));
+  }, []);
 
   const send = async (q) => {
     const question = (q ?? input).trim();
@@ -54,11 +59,10 @@ export default function KnowledgeAssistant() {
         </button>
       </div>
 
-      <div
-        ref={containerRef}
-        className="h-[28rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth"
-      >
-        {messages.length === 0 && (
+      <div className="h-[28rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth">
+        {initialLoading ? (
+          <ChatSkeleton />
+        ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
             <p className="mb-4">Ask a question about the knowledge base.</p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -73,20 +77,20 @@ export default function KnowledgeAssistant() {
               ))}
             </div>
           </div>
+        ) : (
+          <>
+            {messages.map((m, i) => (
+              <ChatBubble key={i} m={m} />
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-500">
+                  Thinking...
+                </div>
+              </div>
+            )}
+          </>
         )}
-
-        {messages.map((m, i) => (
-          <ChatBubble key={i} m={m} />
-        ))}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-500">
-              Thinking...
-            </div>
-          </div>
-        )}
-
         <div ref={bottomRef} />
       </div>
 

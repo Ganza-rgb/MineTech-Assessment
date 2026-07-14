@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import TriageDashboard from './components/TriageDashboard.jsx';
 import KnowledgeAssistant from './components/KnowledgeAssistant.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 const TABS = [
   { id: 'triage', label: 'Smart Intake Triage' },
@@ -11,9 +12,13 @@ const TABS = [
 export default function App() {
   const [tab, setTab] = useState('triage');
   const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.health().then(setHealth).catch(() => setHealth(null));
+    api.health()
+      .then(setHealth)
+      .catch(() => setHealth(null))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -45,23 +50,32 @@ export default function App() {
                 {t.label}
               </button>
             ))}
-            <HealthPill health={health} />
+            <HealthPill health={health} loading={loading} />
           </nav>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        {tab === 'triage' ? <TriageDashboard /> : <KnowledgeAssistant />}
+        <ErrorBoundary>
+          {tab === 'triage' ? <TriageDashboard /> : <KnowledgeAssistant />}
+        </ErrorBoundary>
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-slate-400">
-        Model served locally via Transformers.js · Data stored in MySQL
+        Model served via Hugging Face Inference API · Data stored in MySQL
       </footer>
     </div>
   );
 }
 
-function HealthPill({ health }) {
+function HealthPill({ health, loading }) {
+  if (loading) {
+    return (
+      <span className="ml-3 hidden md:inline-flex rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-[#e6e5aa]/50">
+        connecting...
+      </span>
+    );
+  }
   if (!health) {
     return (
       <span className="ml-3 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-200">
@@ -75,7 +89,7 @@ function HealthPill({ health }) {
 
   return (
     <span className="ml-3 hidden md:inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-[#e6e5aa]">
-      {mode === 'hf' ? 'LLM: self-hosted' : 'LLM: offline mock'} · {docs} docs · {chunks} chunks
+      {mode === 'hf' ? 'LLM: self-hosted' : mode === 'cloud' ? 'LLM: cloud' : 'LLM: offline mock'} · {docs} docs · {chunks} chunks
     </span>
   );
 }

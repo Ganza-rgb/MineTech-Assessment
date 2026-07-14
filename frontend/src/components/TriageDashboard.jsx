@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import { TicketSkeleton } from './Skeletons.jsx';
 
 const SAMPLES = [
   'URGENT: our production dashboard is completely down and the whole team is locked out. This is a critical outage, please fix ASAP!',
@@ -13,7 +14,7 @@ const CATEGORY_COLORS = {
   billing: 'bg-violet-100 text-violet-700',
   technical: 'bg-rose-100 text-rose-700',
   account: 'bg-sky-100 text-sky-700',
-  feature_request: 'bg-emerald-100 text-emerald-700',
+  feature_request: 'bg-emerald-100 text-emerald-100',
   feedback: 'bg-amber-100 text-amber-700',
   other: 'bg-slate-100 text-slate-700',
 };
@@ -32,13 +33,17 @@ export default function TriageDashboard() {
 
   const [filters, setFilters] = useState({ category: '', priority: '', status: '', q: '' });
   const [tickets, setTickets] = useState([]);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
 
   const loadTickets = async () => {
     try {
+      setTicketsLoading(true);
       setTickets(await api.listTickets(filters));
     } catch (e) {
       setError(e.message);
+    } finally {
+      setTicketsLoading(false);
     }
   };
 
@@ -163,23 +168,26 @@ export default function TriageDashboard() {
               </tr>
             </thead>
             <tbody>
-              {tickets.map((t) => (
-                <TicketRow
-                  key={t.id}
-                  t={t}
-                  open={expanded === t.id}
-                  onToggle={() => setExpanded(expanded === t.id ? null : t.id)}
-                  onStatus={(s) =>
-                    api.updateTicket(t.id, s).then(loadTickets)
-                  }
-                />
-              ))}
-              {tickets.length === 0 && (
+              {ticketsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <TicketSkeleton key={i} />)
+              ) : tickets.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-slate-400">
                     No tickets yet — run a triage.
                   </td>
                 </tr>
+              ) : (
+                tickets.map((t) => (
+                  <TicketRow
+                    key={t.id}
+                    t={t}
+                    open={expanded === t.id}
+                    onToggle={() => setExpanded(expanded === t.id ? null : t.id)}
+                    onStatus={(s) =>
+                      api.updateTicket(t.id, s).then(loadTickets)
+                    }
+                  />
+                ))
               )}
             </tbody>
           </table>
