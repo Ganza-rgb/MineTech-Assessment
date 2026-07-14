@@ -3,20 +3,30 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config/config.js';
 import { pool } from '../config/db.js';
-import { getAI } from './aiService.js';
-
-/**
- * Use Case 2 — Grounded Knowledge Assistant (RAG).
- *
- * Pipeline:
- *   ingest()  : chunk knowledge-base docs -> embed -> store in MySQL
- *   retrieve(): lexical (BM25) + semantic (embedding cosine) blended retrieval
- *   answer()  : ground the model in retrieved [n] contexts, require citations,
- *               and explicitly report when the answer is NOT in the KB.
- */
+import { getAI, getMode } from './aiService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../../data');
+
+/* ---- Load system instructions ------------------------------------ */
+
+let SYSTEM_INSTRUCTIONS = `You are a helpful AI assistant for MineTech operations.
+We are the MineTech Support Team - use "We" and "Our team" not "I".
+Help users with technical questions, account issues, and general inquiries.
+Be friendly, concise, and helpful.`;
+
+function loadSystemInstructions() {
+  const instPath = path.join(DATA_DIR, 'system-instructions.md');
+  if (fs.existsSync(instPath)) {
+    try {
+      const content = fs.readFileSync(instPath, 'utf8');
+      SYSTEM_INSTRUCTIONS = content;
+    } catch (e) {
+      console.warn('[rag] Could not load system instructions:', e.message);
+    }
+  }
+}
+loadSystemInstructions();
 
 /* ---- chunking --------------------------------------------------- */
 
@@ -28,7 +38,6 @@ export function chunkText(text, size = config.rag.chunkSize, overlap = config.ra
   while (start < clean.length) {
     let end = Math.min(start + size, clean.length);
     if (end < clean.length) {
-      // break on sentence/paragraph boundary for cleaner context windows
       const next = clean.slice(start, end);
       const lastBreak = Math.max(next.lastIndexOf('\n\n'), next.lastIndexOf('. '));
       if (lastBreak > size * 0.4) end = start + lastBreak + 1;
@@ -40,7 +49,7 @@ export function chunkText(text, size = config.rag.chunkSize, overlap = config.ra
   return chunks.filter((c) => c.length > 0);
 }
 
-/* ---- ingestion -------------------------------------------------- */
+/* ---- ingestion (parallel) --------------------------------------- */
 
 export async function ingestFile(filePath) {
   const ai = await getAI();
@@ -56,13 +65,24 @@ export async function ingestFile(filePath) {
       [title, filePath]
     );
     const documentId = doc.insertId;
-    for (let i = 0; i < chunks.length; i++) {
-      const embedding = await ai.embed(chunks[i]);
-      await conn.query(
+
+    // Parallel embedding + insertion
+    const embedPromises = chunks.map(async (chunk, i) => {
+      const embedding = await ai.embed(chunk);
+      return { index: i, chunk, embedding };
+    });
+
+    const results = await Promise.all(embedPromises);
+
+    // Parallel database insertion
+    const insertPromises = results.map(({ index, chunk, embedding }) =>
+      conn.query(
         'INSERT INTO chunks (document_id, chunk_index, content, embedding) VALUES (?, ?, ?, ?)',
-        [documentId, i, chunks[i], JSON.stringify(embedding)]
-      );
-    }
+        [documentId, index, chunk, embedding ? JSON.stringify(embedding) : null]
+      )
+    );
+
+    await Promise.all(insertPromises);
     return { title, chunks: chunks.length };
   } finally {
     conn.release();
@@ -73,84 +93,54 @@ export async function ingestAll() {
   if (!fs.existsSync(DATA_DIR)) return [];
   const files = fs
     .readdirSync(DATA_DIR)
-    .filter((f) => f.toLowerCase().endsWith('.txt'))
+    .filter((f) => f.toLowerCase().endsWith('.txt') || f.toLowerCase().endsWith('.md'))
     .map((f) => path.join(DATA_DIR, f));
   const results = [];
   for (const f of files) results.push(await ingestFile(f));
   return results;
 }
 
-/* ---- retrieval (BM25 + semantic blend) -------------------------- */
+/* ---- retrieval (optimized) -------------------------------------- */
 
 function cosine(a, b) {
   let dot = 0;
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) dot += a[i] * b[i];
-  return dot; // inputs are L2-normalized
+  return dot;
 }
 
 function tokenize(t) {
   return (t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
 }
 
-function bm25Scores(query, docs, k1 = 1.5, b = 0.75) {
-  const qTokens = tokenize(query);
-  if (qTokens.length === 0) return docs.map(() => 0);
-  const N = docs.length;
-  const lengths = docs.map((d) => d.tokens.length);
-  const avgdl = lengths.reduce((s, l) => s + l, 0) / (N || 1);
-  const df = {};
-  for (const t of qTokens) {
-    df[t] = docs.filter((d) => d.tokens.includes(t)).length;
-  }
-  return docs.map((d) => {
-    let score = 0;
-    const freq = {};
-    for (const t of d.tokens) freq[t] = (freq[t] || 0) + 1;
-    for (const t of qTokens) {
-      const n = df[t];
-      if (!n) continue;
-      const f = freq[t] || 0;
-      const idf = Math.log(1 + (N - n + 0.5) / (n + 0.5));
-      score += idf * ((f * (k1 + 1)) / (f + k1 * (1 - b + b * (d.tokens.length / (avgdl || 1)))));
-    }
-    return score;
-  });
-}
-
 export async function retrieve(query, topK = config.rag.topK) {
   const [rows] = await pool.query(
     `SELECT c.id, c.document_id, c.chunk_index, c.content, c.embedding, d.title
-     FROM chunks c JOIN documents d ON d.id = c.document_id`
+     FROM chunks c JOIN documents d ON d.id = c.document_id
+     LIMIT 100`
   );
-  if (rows.length === 0) return { results: [], queryEmbedding: null };
+  if (rows.length === 0) return { results: [], relevant: [], queryEmbedding: null };
 
   const ai = await getAI();
   const queryEmbedding = await ai.embed(query);
+  if (!queryEmbedding) return { results: [], relevant: [], queryEmbedding: null };
 
-  const docs = rows.map((r) => ({
-    ...r,
-    embedding: typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding,
-    tokens: tokenize(r.content),
-  }));
+  // Optimized: just cosine similarity, no BM25
+  const scored = rows.map((r) => {
+    const emb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding;
+    return {
+      id: r.id,
+      document_id: r.document_id,
+      document: r.title,
+      chunk_index: r.chunk_index,
+      content: r.content,
+      cosine: cosine(queryEmbedding, emb),
+    };
+  });
 
-  const cos = docs.map((d) => cosine(queryEmbedding, d.embedding));
-  const bm25 = bm25Scores(query, docs);
-  const maxBm25 = Math.max(...bm25, 0) || 1;
-
-  const scored = docs.map((d, i) => ({
-    id: d.id,
-    document_id: d.document_id,
-    document: d.title,
-    chunk_index: d.chunk_index,
-    content: d.content,
-    cosine: cos[i],
-    bm25: bm25[i],
-    score: (1 - config.rag.lexicalWeight) * cos[i] + config.rag.lexicalWeight * (bm25[i] / maxBm25),
-  }));
-
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => b.cosine - a.cosine);
   const relevant = scored.filter((s) => s.cosine >= config.rag.similarityThreshold);
+
   return {
     results: scored.slice(0, topK).map((s, i) => ({ ...s, rank: i + 1 })),
     relevant: relevant.slice(0, topK),
@@ -158,72 +148,94 @@ export async function retrieve(query, topK = config.rag.topK) {
   };
 }
 
-/* ---- grounded answer -------------------------------------------- */
-
-const ANSWER_SYSTEM = `You are a grounded knowledge-base assistant.
-Answer the user's question using ONLY the numbered context passages below.
-Rules:
-- Cite the passages you used inline as [1], [2], etc.
-- If the context does not contain the answer, say exactly: "I don't have information about that in the knowledge base."
-- Do not use any knowledge outside the provided passages.
-- Be concise and factual.`;
+/* ---- answer (fast cloud path) ----------------------------------- */
 
 export async function answer(query) {
-  const ai = await getAI();
-  const { relevant, results } = await retrieve(query);
+  const mode = getMode();
 
-  const hasStrongMatch = relevant.length > 0 && relevant[0].cosine >= 0.35;
-
-  if (hasStrongMatch) {
-    const context = relevant
-      .map((r, i) => `[${i + 1}] ${r.content}`)
-      .join('\n\n');
+  // FAST PATH: Cloud mode - skip RAG entirely, just chat
+  if (mode === 'cloud') {
+    const ai = await getAI();
     const modelOut = await ai.generate({
-      system: `${ANSWER_SYSTEM}\n\nContext:\n${context}`,
+      system: SYSTEM_INSTRUCTIONS,
       prompt: query,
-      temperature: 0.1,
+      temperature: 0.7,
     });
-
-    const citations = relevant
-      .map((r, i) => ({ index: i + 1, document: r.document, chunk_id: r.id, snippet: r.content.slice(0, 200) }))
-      .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut));
-
-    const notInKb = /don't have information about that in the knowledge base/i.test(modelOut);
 
     return {
       content: modelOut.trim(),
-      citations,
-      grounded: !notInKb && citations.length > 0,
-      confidence: Number(relevant[0].cosine.toFixed(3)),
-      provider: ai.mode,
+      citations: [],
+      grounded: false,
+      confidence: 1,
+      provider: mode,
     };
   }
 
-  const modelOut = await ai.generate({
-    system: `You are a technical support assistant. The user asked a question that is not covered in the Minetech knowledge base.
-- If the question is about general technical support, troubleshooting, software, hardware, networks, or IT issues, provide a helpful, concise answer using your general knowledge.
-- If the question is completely unrelated to technical support (for example: cooking, sports, entertainment, personal advice), politely decline by saying exactly: "I don't have information about that in the knowledge base."
-- Do not mention that the question is not in the knowledge base. Just answer helpfully for technical topics, or decline for non-technical topics.`,
-    prompt: query,
-    temperature: 0.2,
-  });
+  // LOCAL MODE: Use RAG for grounding
+  const ai = await getAI();
+  const { relevant } = await retrieve(query);
+
+  let systemPrompt = SYSTEM_INSTRUCTIONS;
+  let modelOut;
+  let citations = [];
+  let grounded = false;
+  let confidence = 0;
+
+  if (relevant.length > 0) {
+    const context = relevant
+      .map((r, i) => `[${i + 1}] ${r.content}`)
+      .join('\n\n');
+
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}`;
+
+    modelOut = await ai.generate({
+      system: systemPrompt,
+      prompt: query,
+      temperature: 0.7,
+    });
+
+    const usedCitations = [];
+    relevant.forEach((r, i) => {
+      if (new RegExp(`\\[${i + 1}\\]`).test(modelOut)) {
+        usedCitations.push({
+          index: i + 1,
+          document: r.document,
+          chunk_id: r.id,
+          snippet: r.content.slice(0, 150)
+        });
+      }
+    });
+    citations = usedCitations;
+    grounded = citations.length > 0;
+    confidence = Number(relevant[0].cosine.toFixed(3));
+  } else {
+    modelOut = await ai.generate({
+      system: systemPrompt,
+      prompt: query,
+      temperature: 0.7,
+    });
+  }
 
   return {
     content: modelOut.trim(),
-    citations: [],
-    grounded: false,
-    confidence: 0,
-    provider: ai.mode,
+    citations: grounded ? citations : [],
+    grounded,
+    confidence,
+    provider: mode,
   };
 }
 
 export async function knowledgeStats() {
-  const [docs] = await pool.query('SELECT COUNT(*) AS n FROM documents');
-  const [chunks] = await pool.query('SELECT COUNT(*) AS n FROM chunks');
-  return { documents: docs[0].n, chunks: chunks[0].n };
+  try {
+    const [docs] = await pool.query('SELECT COUNT(*) AS n FROM documents');
+    const [chunks] = await pool.query('SELECT COUNT(*) AS n FROM chunks');
+    return { documents: docs[0].n, chunks: chunks[0].n };
+  } catch {
+    return { documents: 0, chunks: 0 };
+  }
 }
 
-/* ---- CLI: `node src/services/ragService.js ingest` -------------- */
+/* ---- CLI -------------------------------------------------------- */
 
 if (process.argv[2] === 'ingest') {
   const { initSchema } = await import('../config/db.js');

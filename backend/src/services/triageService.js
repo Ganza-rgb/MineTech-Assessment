@@ -47,7 +47,7 @@ Priority guidance:
 - medium: actionable but not time-critical (e.g. billing questions).
 - low: general feedback, thanks, minor asks.
 Extract key_entities only when clearly present. The suggested_reply must be professional,
-reference the customer by email username if available, and never invent facts.`;
+always use "We" or "Our team" (NOT "I"), reference the customer by email username if available, and never invent facts.`;
 
 const REPAIR_PROMPT = `Your previous output was not valid JSON. Re-emit the same analysis as a single,
 strictly valid JSON object and nothing else.`;
@@ -152,7 +152,7 @@ function heuristic(text) {
       customer_name: null,
     },
     summary: (text || '').trim().slice(0, 120),
-    suggested_reply: 'Thanks for reaching out — our team will review and follow up shortly.',
+    suggested_reply: 'Thanks for reaching out — we will review your request and follow up shortly.',
     confidence: 0.3,
   };
 }

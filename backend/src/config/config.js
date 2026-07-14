@@ -17,25 +17,29 @@ export const config = {
     connectionLimit: Number(process.env.MYSQL_POOL) || 10,
   },
 
+  // LLM Mode: 'local', 'cloud', or 'auto' (auto switches based on network)
   llm: {
-    // 'mock' -> deterministic offline provider (no download, runs anywhere)
-    // 'hf'   -> self-hosted Hugging Face model via Transformers.js
-    mode: process.env.LLM_MODE || 'mock',
+    mode: process.env.LLM_MODE || 'auto', // 'local' | 'cloud' | 'auto'
+    cloudProvider: process.env.CLOUD_PROVIDER || 'hf', // 'hf' = Hugging Face Inference API
+    cloudApiUrl: process.env.CLOUD_API_URL || 'https://api-inference.huggingface.co',
+    cloudApiKey: process.env.CLOUD_API_KEY || '', // Add your HF token here
+    cloudModel: process.env.CLOUD_MODEL || 'Qwen/Qwen2.5-0.5B-Instruct',
+
+    // Local HF model settings
     hfModelId: process.env.HF_MODEL_ID || 'onnx-community/Qwen2.5-0.5B-Instruct',
     hfEmbedModelId: process.env.HF_EMBED_MODEL_ID || 'Xenova/all-MiniLM-L6-v2',
     dtype: process.env.HF_DTYPE || 'q4',
     device: process.env.TRANSFORMERS_DEVICE || 'cpu',
     temperature: Number(process.env.LLM_TEMP) ?? 0.2,
-    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 512,
+    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256, // Reduced for speed
   },
 
   rag: {
     chunkSize: Number(process.env.RAG_CHUNK_SIZE) || 600,
     chunkOverlap: Number(process.env.RAG_CHUNK_OVERLAP) || 100,
     topK: Number(process.env.RAG_TOP_K) || 4,
-    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.25,
+    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.2, // Lowered for more matches
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
-    // Glob of knowledge-base files ingested on `npm run ingest`.
     knowledgeGlob: 'data/*.txt',
   },
 };

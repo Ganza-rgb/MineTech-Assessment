@@ -6,7 +6,7 @@ const SUGGESTIONS = [
   'How do we handle a suspected data breach?',
   'What is the refund policy for annual plans?',
   'Who do I escalate a security incident to?',
-  'Tell me about the company’s Q3 revenue.',
+  'Tell me about the safety procedures.',
 ];
 
 export default function KnowledgeAssistant() {
@@ -34,8 +34,7 @@ export default function KnowledgeAssistant() {
     <div className="mx-auto max-w-3xl">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          Grounded in your local knowledge base. Citations required; “not in KB” is
-          reported honestly.
+          Ask questions about operations, safety, or technical support.
         </p>
         <button
           onClick={() => api.ingest().then(() => window.location.reload())}
@@ -48,7 +47,7 @@ export default function KnowledgeAssistant() {
       <div className="h-[28rem] space-y-4 overflow-auto rounded-xl border border-slate-200 bg-white p-4">
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
-            <p className="mb-4">Ask a question about the safety protocols &amp; handbook.</p>
+            <p className="mb-4">Ask a question about the knowledge base.</p>
             <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
@@ -70,7 +69,7 @@ export default function KnowledgeAssistant() {
         {loading && (
           <div className="flex justify-start">
             <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-500">
-              Thinking…
+              Thinking...
             </div>
           </div>
         )}
@@ -81,7 +80,7 @@ export default function KnowledgeAssistant() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="Ask the knowledge base…"
+          placeholder="Ask a question..."
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <button
@@ -112,8 +111,8 @@ function ChatBubble({ m }) {
         {m.error ? (
           <span className="text-red-600">{m.content}</span>
         ) : (
-            <>
-              <p className="whitespace-pre-wrap">{m.content}</p>
+          <>
+            <p className="whitespace-pre-wrap">{m.content}</p>
             {m.citations?.length > 0 && (
               <div className="mt-2 border-t border-slate-200 pt-2">
                 <p className="mb-1 text-xs font-semibold text-slate-500">Sources</p>
@@ -121,7 +120,7 @@ function ChatBubble({ m }) {
                   {m.citations.map((c) => (
                     <li key={c.chunk_id} className="text-xs text-slate-500">
                       <span className="font-mono text-indigo-600">[{c.index}]</span>{' '}
-                      {c.document} — “{c.snippet}…”
+                      {c.document}
                     </li>
                   ))}
                 </ul>
