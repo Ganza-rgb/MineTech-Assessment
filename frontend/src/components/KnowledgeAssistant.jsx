@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 
 const SUGGESTIONS = [
@@ -13,6 +13,16 @@ export default function KnowledgeAssistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const containerRef = useRef(null);
+  const bottomRef = useRef(null);
+
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
 
   const send = async (q) => {
     const question = (q ?? input).trim();
@@ -44,7 +54,10 @@ export default function KnowledgeAssistant() {
         </button>
       </div>
 
-      <div className="h-[28rem] space-y-4 overflow-auto rounded-xl border border-slate-200 bg-white p-4">
+      <div
+        ref={containerRef}
+        className="h-[28rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth"
+      >
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
             <p className="mb-4">Ask a question about the knowledge base.</p>
@@ -73,6 +86,8 @@ export default function KnowledgeAssistant() {
             </div>
           </div>
         )}
+
+        <div ref={bottomRef} />
       </div>
 
       <div className="mt-3 flex gap-2">
