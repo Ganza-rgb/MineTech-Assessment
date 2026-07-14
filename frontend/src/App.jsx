@@ -32,7 +32,7 @@ export default function App() {
               className="h-9 w-auto brightness-0 invert"
             />
             <span className="text-sm font-medium text-[#e6e5aa] hidden sm:inline">
-              Operations Command
+              | Operations Command
             </span>
           </div>
 
@@ -50,7 +50,7 @@ export default function App() {
                 {t.label}
               </button>
             ))}
-            <HealthPill health={health} loading={loading} />
+            {/* <HealthPill health={health} loading={loading} /> */}
           </nav>
         </div>
       </header>
@@ -60,10 +60,6 @@ export default function App() {
           {tab === 'triage' ? <TriageDashboard /> : <KnowledgeAssistant />}
         </ErrorBoundary>
       </main>
-
-      <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-slate-400">
-        Model served via Hugging Face Inference API · Data stored in MySQL
-      </footer>
     </div>
   );
 }

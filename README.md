@@ -54,10 +54,12 @@ Key settings:
 ```ini
 # Default mode: cloud (fast, no local model download)
 LLM_MODE=cloud
-CLOUD_MODEL=meta-llama/Llama-3.2-1B-Instruct
+
+# Cloud inference via Hugging Face
+CLOUD_MODEL=Qwen/Qwen2.5-0.5B-Instruct
 CLOUD_API_KEY=hf_...
 
-# Local fallback (optional, requires `npm i @huggingface/transformers`)
+# Local fallback (optional, requires @huggingface/transformers — already installed)
 HF_MODEL_ID=onnx-community/Qwen2.5-0.5B-Instruct
 HF_EMBED_MODEL_ID=Xenova/all-MiniLM-L6-v2
 HF_DTYPE=q4
@@ -91,9 +93,7 @@ Open the frontend URL (default http://localhost:5173).
 | `local` | Loads ONNX weights via Transformers.js. Slower on CPU, works offline after first download. | Air-gapped environments; no HF token |
 | `mock` | Deterministic heuristic responses. No model needed. | CI / smoke testing |
 
-In **cloud mode**, the Knowledge Assistant skips the RAG retrieval loop and answers
-directly from the model for speed. In **local mode**, it runs full RAG retrieval
-over the MySQL-backed knowledge base with citations.
+In **cloud mode**, the Knowledge Assistant runs RAG retrieval over the MySQL-backed knowledge base and grounds answers with citations when relevant docs are found. In **local mode**, it does the same with the local ONNX model.
 
 ---
 
@@ -105,8 +105,11 @@ drafted reply appears, and the row lands in the filterable table. Filter by
 category, priority, or status, or search by keyword. Change ticket status inline.
 
 ### Knowledge Assistant
-Ask a question (or click a suggestion). In cloud mode you get fast, direct answers.
-In local mode, answers cite source sections `[1] [2]` pulled from the knowledge base.
+Ask a question (or click a suggestion). The assistant runs RAG retrieval in both cloud and local modes:
+- **Relevant docs found:** The answer is grounded in the matched passages, with citation indexes like `[1]` and `[2]` pointing to the source file.
+- **No relevant docs:** The model refuses to answer off-topic questions (sports, politics, entertainment, etc.) and redirects the user to MineTech-related topics.
+
+The assistant is restricted to MineTech operations, safety, technical support, billing, and account topics only.
 
 To add your own documents, drop `.txt` / `.md` files into `backend/data/` and click
 **Re-ingest KB** in the UI, or run:
@@ -126,7 +129,7 @@ npm run ingest
 | POST | `/api/triage` | Classify/extract/draft one message → JSON |
 | GET | `/api/tickets` | List tickets (`?category&priority&status&q`) |
 | PATCH | `/api/tickets/:id` | Update status |
-| POST | `/api/rag/ask` | Answer + citations (cloud skips RAG) |
+| POST | `/api/rag/ask` | Grounded answer + citations (runs RAG in all modes) |
 | POST | `/api/rag/retrieve` | Raw retrieved passages (debug, local only) |
 | POST | `/api/rag/ingest` | Re-ingest `backend/data/*.txt` |
 | POST | `/api/rag/ingest/text` | Ingest an arbitrary pasted doc |

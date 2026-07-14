@@ -51,12 +51,7 @@ export default function KnowledgeAssistant() {
         <p className="text-sm text-slate-500">
           Ask questions about operations, safety, or technical support.
         </p>
-        <button
-          onClick={() => api.ingest().then(() => window.location.reload())}
-          className="rounded bg-slate-100 px-3 py-1 text-xs hover:bg-slate-200"
-        >
-          Re-ingest KB
-        </button>
+
       </div>
 
       <div className="h-[28rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth">

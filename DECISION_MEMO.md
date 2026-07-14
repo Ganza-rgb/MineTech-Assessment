@@ -1,187 +1,75 @@
-# Design Document — Minetech Assessment
+# Decision Memo — Minetech Assessment
 
-**Author:** candidate · **Date:** 2026-07-14
-**Problem:** Serve one open-source LLM ourselves (no paid APIs) and build
-structured triage + a grounded RAG assistant on top of it.
+**Author:** GANZA Eliphaz · **Date:** 2026-07-14
+**Problem:** Serve one open-source LLM ourselves (no paid APIs) and build structured triage + a grounded RAG assistant on top of it.
 
 ---
 
-## 1. Problem Statement
+## 1. Model choice
 
-Build a full-stack application that:
-1. Serves an open-source LLM without relying on commercial APIs
-2. Implements Smart Intake Triage (structured generation) with graceful error handling
-3. Implements a Grounded Knowledge Assistant (RAG) with citations
-4. Runs on free resources with acceptable latency
+**Qwen/Qwen2.5-7B-Instruct (cloud) / Qwen2.5-0.5B-Instruct (local ONNX fallback).**
 
-## 2. Model Strategy
+- Primary: Hugging Face Inference API with `@huggingface/inference` SDK. No local download, no GPU, 2–4s latency on the free tier. Works on any machine with internet and a free HF token.
+- Fallback: `@huggingface/transformers` loading ONNX weights directly in Node (`onnx-community/Qwen2.5-0.5B-Instruct`, Q4). CPU-only by default for maximum compatibility; cached in `~/.cache/huggingface` after first download.
+- Embeddings: `sentence-transformers/all-MiniLM-L6-v2` (384-d). Small, fast, and accurate enough for passage retrieval in a small KB.
 
-### Decision: Cloud-first with local fallback
-**Rationale:**
-- Primary path: Hugging Face Inference API with `meta-llama/Llama-3.2-1B-Instruct` via `@huggingface/inference` SDK
-  - No local model download required (~1 GB)
-  - Fast response times (2-4s on free tier)
-  - No GPU required
-  - Works on any machine with internet
+Both paths go through the same `aiService` interface (`generate` + `embed`), so swapping providers touches only that file.
 
-- Fallback path: `@huggingface/transformers` loading ONNX weights locally
-  - For air-gapped environments or HF API downtime
-  - Qwen2.5-0.5B-Instruct (fast, small footprint)
-  - CPU-only by default for maximum compatibility
+---
 
-**Trade-offs:**
-- Cloud mode depends on internet + HF token validity
-- Local mode is slower but fully self-contained
-- Both paths use the same `aiService` interface (`generate` + `embed`)
+## 2. Quantization / serving approach
 
-### Model Parameters
-- Temperature: 0.7 (balanced creativity/consistency)
-- Max tokens: 128 (keeps cloud latency low on free tier)
-- Embedding model: `sentence-transformers/all-MiniLM-L6-v2` (384-d, fast, accurate)
+- **Cloud:** No quantization needed — HF Inference API handles model hosting. We pass root-level OpenAI-compatible parameters (`temperature`, `max_tokens`) to the `/v1/chat/completions` endpoint.
+- **Local:** Q4 quantization via ONNX. Balances size (~400 MB for 0.5B) and speed on CPU. `TRANSFORMERS_DEVICE` can switch to `webgpu`/`wasm` when available.
+- Weights are pulled from the HF Hub once and cached locally. No Python runtime, no external server process, no commercial API.
 
-## 3. Architecture
+---
 
-### Service Layer Design
-```
-aiService.js     - Model boundary (generate, embed, health)
-triageService.js - Use Case 1: structured generation + validation
-ragService.js    - Use Case 2: retrieval + grounded answering
-```
+## 3. Retrieval strategy
 
-**Key principle:** The model is isolated behind `aiService`. Swapping providers (Ollama, vLLM, different HF model) touches only that file.
+**Cosine similarity over `all-MiniLM` embeddings, with keyword fallback.**
 
-### Triage Pipeline
-1. User submits raw text
-2. Model generates JSON (system prompt with schema)
-3. Parse → regex-extract → repair re-prompt → heuristic fallback
-4. Zod validation + coercion (unknown enum → `other`/`low`)
-5. Store in MySQL with metadata (repaired, fatal_fallback, provider)
-6. Return structured JSON to frontend
+- Chunks are ~600 chars with 100-char overlap, split on sentence boundaries.
+- Embeddings stored as JSON arrays in MySQL; similarity computed in Node (fine for <100 chunks).
+- If the cloud embedding endpoint fails, retrieval falls back to token-overlap scoring so RAG still works during HF API hiccups.
+- Top-k = 4, threshold = 0.2 cosine.
 
-**Why this design:**
-- Multi-stage fallback ensures the dashboard never receives malformed data
-- Heuristic fallback keeps the pipeline resilient to bad model outputs
-- Zod validation provides runtime type safety
+Why not BM25: simpler code, fewer dependencies, and sufficient for a small KB. I would reintroduce hybrid BM25+cosine if the corpus grows beyond a few hundred chunks.
 
-### RAG Pipeline
-1. User submits question
-2. Retrieve top-K chunks from MySQL (cosine similarity over embeddings)
-3. If embeddings fail, fall back to keyword overlap scoring
-4. Inject relevant context into system prompt
-5. Model generates answer with citation markers `[1]`, `[2]`, etc.
-6. Parse citations from model output
-7. Return answer + citations + grounded flag + confidence score
+---
 
-**Design decisions:**
-- Cosine-only retrieval (no BM25): simpler code, fewer dependencies, sufficient for <100 chunks
-- Embeddings stored as JSON in MySQL: works immediately, no schema migrations
-- Keyword fallback when embeddings fail: ensures RAG still works during HF API hiccups
-- Unified code path: both cloud and local modes run retrieval (no shortcuts)
+## 4. Hallucination & invalid-output handling
 
-## 4. Frontend Architecture
+**Triage (structured generation):**
+1. Model emits JSON per a strict schema prompt.
+2. Parse → regex-extract first `{…}` → one repair re-prompt → **heuristic fallback** if still unparseable.
+3. Every output is **Zod-validated and coerced** (unknown enum → `other`/`low`, clamped confidence). The dashboard never receives malformed data.
 
-### Component Structure
-```
-App.jsx                    - Root layout, nav, error boundary
-├── TriageDashboard.jsx    - Input form + filterable table
-└── KnowledgeAssistant.jsx - Chat UI with auto-scroll
-```
+**RAG (grounded answering):**
+- The model is instructed to answer only from numbered context and cite with `[1]`, `[2]`, etc.
+- Hard guard: if retrieval returns no chunk above the cosine threshold, we return the model output with `grounded: false`, `confidence: 0`, and zero citations. The model is still called with the base system prompt (no hardcoded refusal messages), so it can respond naturally when context is thin.
+- Citations are parsed from the model output using regex; only cited chunks are returned.
 
-### UX Decisions
-- **Auto-scroll chat:** Sentinel div + `scrollIntoView` on message/loading changes
-- **Skeleton loading:** Initial load shows placeholder skeletons, not empty state
-- **Error boundary:** Catches React errors without crashing the entire app
-- **Responsive nav:** Logo left, tabs right, health pill hidden on mobile
-- **Filter auto-refresh:** `useEffect` on filter state triggers API call
+**Topic restriction (anti-hallucination):**
+- The system prompt explicitly restricts the assistant to MineTech topics: operations, safety, technical support, billing, and account access.
+- Off-topic questions (sports, politics, entertainment, etc.) are refused by the model and redirected to MineTech support. This prevents the assistant from answering general knowledge questions that could erode user trust in safety-critical environments.
 
-## 5. API Design
+---
 
-### Endpoints
-| Method | Path | Purpose | Validation |
-|--------|------|---------|------------|
-| GET | `/api/health` | Provider mode + KB stats | None |
-| POST | `/api/triage` | Classify/extract/draft → JSON | Zod: text required |
-| GET | `/api/tickets` | List tickets (filterable) | Query params |
-| PATCH | `/api/tickets/:id` | Update status | Zod: status enum |
-| POST | `/api/rag/ask` | Answer + citations | Zod: question required |
-| POST | `/api/rag/retrieve` | Raw passages (debug) | Zod: question required |
-| POST | `/api/rag/ingest` | Re-ingest KB files | None |
-| POST | `/api/rag/ingest/text` | Ingest arbitrary doc | Zod: title + content |
-| GET | `/api/rag/stats` | KB document/chunk count | None |
+## 5. Latency vs. hardware trade-offs
 
-### Request/Response Flow
-```
-Frontend → Express → Validation (zod) → Service → Model/DB → Response
-                ↓
-          Structured logging (request ID, duration, metadata)
-```
+- **Unified RAG path:** Both cloud and local modes run retrieval first (`retrieve()` → embed + cosine), then generate. This is the explicit trade-off: ~1–3s extra for grounding on cloud, but the assistant is now consistently grounded in the KB.
+- **Cloud mode:** One embed call + cosine similarity + one generate call. Typical latency: 3–6s on the free HF tier. If the embedding endpoint fails, keyword fallback keeps retrieval working without adding model calls.
+- **Local mode:** Full RAG on CPU, ~5–15s. Only used when cloud is unavailable or explicitly opted into.
+- `max_tokens: 128` keeps responses concise and latency low. I would raise this with streaming for production.
+- `topK: 4` for both modes — enough context for grounding without bloating the prompt.
+- CPU is the default device because it requires zero setup. WebGPU/WASM is one env var away when available.
 
-## 6. Security & Reliability
+---
 
-### Input Validation
-- All POST bodies validated with Zod schemas before processing
-- SQL queries use parameterized statements (mysql2 `?` placeholders)
-- No raw SQL concatenation with user input
+## 6. Assumptions on ambiguous points
 
-### Logging
-- Every request gets a unique ID (UUID)
-- Structured logs include: timestamp, level, request ID, endpoint, duration, metadata
-- Errors include stack traces in development, sanitized in production
-- No secrets logged (API keys, passwords)
-
-### Error Handling
-- Model errors: logged + 500 response with generic message
-- Validation errors: 400 with field-level details
-- DB errors: logged + 500 response
-- Frontend: Error boundary catches React errors, shows user-friendly message
-
-## 7. Performance
-
-### Cloud Mode (Default)
-- Single API call per request (no RAG overhead)
-- Response time: 2-4 seconds
-- Embedding retry with backoff (3 attempts, 500ms/1s delays)
-- Request timeout: 60s (AbortController)
-
-### Local Mode (Fallback)
-- RAG retrieval: embedding generation + cosine similarity
-- Response time: 5-15 seconds (CPU-bound)
-- Keyword fallback when embeddings fail
-
-### Optimization Decisions
-- `max_tokens: 128` keeps cloud latency low
-- `topK: 1` for cloud (fast, no citations needed)
-- `topK: 4` for local (more context for grounding)
-- LIMIT 50/100 on DB queries to prevent full table scans
-
-## 8. Database Schema
-
-```sql
-tickets     - Structured triage results (category, priority, entities, reply)
-documents   - KB documents (title, source, created_at)
-chunks      - Text chunks with embeddings (JSON array)
-```
-
-**Why MySQL:**
-- Requested stack
-- JSON columns for flexible schema (embeddings, entities)
-- AUTO_INCREMENT for simple ID management
-- FULLTEXT index on chunks for keyword fallback
-
-## 9. What We'd Improve With More Time
-
-1. **Streaming responses** - SSE for real-time token display in chat
-2. **Vector database** - pgvector or MySQL VECTOR for billion-scale retrieval
-3. **Caching** - Redis for frequent queries and embeddings
-4. **Rate limiting** - Prevent abuse of HF API (per-user quotas)
-5. **Authentication** - JWT or session-based auth for production use
-6. **Tests** - Integration tests for all endpoints, CI/CD pipeline
-7. **Monitoring** - Prometheus metrics, APM for model latency tracking
-8. **Prompt engineering** - A/B testing different system prompts for triage accuracy
-
-## 10. Assumptions
-
-- **Triage schema:** Defined as `{category, priority, priority_reason, sentiment, language, key_entities, summary, suggested_reply, confidence}` with 6 categories and 4 priorities
-- **"Not in KB":** Model responds naturally without hardcoded messages. When no relevant chunks found, model is still called with base system prompt
-- **Knowledge base:** Seeded with `safety_protocols.txt` and `technical-faq.md`; ingestible at runtime
-- **Deployment:** Single-server deployment (no load balancer, no container orchestration)
+- **Triage schema:** Defined as `{category ∈ {billing,technical,account,feature_request,feedback,other}, priority ∈ {low,medium,high,urgent}, priority_reason, sentiment, language, key_entities{product,email,order_id,customer_name}, summary, suggested_reply, confidence}`. Priority is rule-driven (urgency/impact language → urgent; broken/failing → high; billing → medium).
+- **"Not in the knowledge base":** Defined as no retrieved chunk with cosine ≥ 0.2. When this happens, the model is still called with the base system prompt and responds naturally without hardcoded messages. `grounded` is false and `confidence` is 0.
+- **Knowledge base:** Seeded with `backend/data/safety_protocols.txt` and `backend/data/technical-faq.md`; ingestible at runtime via UI or `npm run ingest`.
+- **Database:** MySQL (per requested stack), schema auto-created on boot. JSON columns used for flexible storage of embeddings and entities.

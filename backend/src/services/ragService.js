@@ -10,10 +10,10 @@ const DATA_DIR = path.resolve(__dirname, '../../data');
 
 /* ---- Load system instructions ------------------------------------ */
 
-let SYSTEM_INSTRUCTIONS = `You are a helpful AI assistant for MineTech operations.
-We are the MineTech Support Team - use "We" and "Our team" not "I".
-Help users with technical questions, account issues, and general inquiries.
-Be friendly, concise, and helpful.`;
+let SYSTEM_INSTRUCTIONS = `You are a support assistant for MineTech, a mining technology company.
+You answer ONLY questions about MineTech operations, safety protocols, technical support, billing, account access, and company policies.
+If the user asks about sports, politics, entertainment, cooking, or any topic unrelated to MineTech, politely refuse and redirect them to MineTech-related topics.
+Use "We" and "Our team", not "I". Be concise, professional, and grounded in the provided context when available.`;
 
 function loadSystemInstructions() {
   const instPath = path.join(DATA_DIR, 'system-instructions.md');
@@ -163,28 +163,11 @@ export async function retrieve(query, topK = config.rag.topK) {
   };
 }
 
-/* ---- answer (fast cloud path) ----------------------------------- */
+/* ---- answer (grounded for all modes) ----------------------------- */
 
 export async function answer(query) {
   const ai = await getAI();
   const mode = getMode();
-
-  if (mode === 'cloud') {
-    const modelOut = await ai.generate({
-      system: SYSTEM_INSTRUCTIONS,
-      prompt: query,
-      temperature: 0.7,
-    });
-
-    return {
-      content: modelOut.trim(),
-      citations: [],
-      grounded: false,
-      confidence: 0,
-      provider: mode,
-    };
-  }
-
   const { relevant } = await retrieve(query);
 
   let systemPrompt = SYSTEM_INSTRUCTIONS;
@@ -193,14 +176,7 @@ export async function answer(query) {
   let grounded = false;
   let confidence = 0;
 
-  if (relevant.length === 0) {
-    modelOut = await ai.generate({
-      system: systemPrompt,
-      prompt: query,
-      temperature: 0.7,
-    });
-    confidence = 0;
-  } else {
+  if (relevant.length > 0) {
     const context = relevant
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
@@ -227,6 +203,13 @@ export async function answer(query) {
     citations = usedCitations;
     grounded = citations.length > 0;
     confidence = Number(relevant[0].cosine.toFixed(3));
+  } else {
+    modelOut = await ai.generate({
+      system: systemPrompt,
+      prompt: query,
+      temperature: 0.7,
+    });
+    confidence = 0;
   }
 
   return {
