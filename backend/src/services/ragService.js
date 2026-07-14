@@ -151,28 +151,8 @@ export async function retrieve(query, topK = config.rag.topK) {
 /* ---- answer (fast cloud path) ----------------------------------- */
 
 export async function answer(query) {
-  const mode = getMode();
-
-  // FAST PATH: Cloud mode - skip RAG entirely, just chat
-  if (mode === 'cloud') {
-    const ai = await getAI();
-    const modelOut = await ai.generate({
-      system: SYSTEM_INSTRUCTIONS,
-      prompt: query,
-      temperature: 0.7,
-    });
-
-    return {
-      content: modelOut.trim(),
-      citations: [],
-      grounded: false,
-      confidence: 1,
-      provider: mode,
-    };
-  }
-
-  // LOCAL MODE: Use RAG for grounding
   const ai = await getAI();
+  const mode = getMode();
   const { relevant } = await retrieve(query);
 
   let systemPrompt = SYSTEM_INSTRUCTIONS;
@@ -214,11 +194,12 @@ export async function answer(query) {
       prompt: query,
       temperature: 0.7,
     });
+    confidence = 0;
   }
 
   return {
     content: modelOut.trim(),
-    citations: grounded ? citations : [],
+    citations,
     grounded,
     confidence,
     provider: mode,

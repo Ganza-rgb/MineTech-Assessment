@@ -44,7 +44,7 @@ export default function TriageDashboard() {
 
   useEffect(() => {
     loadTickets();
-  }, []);
+  }, [filters.category, filters.priority, filters.status, filters.q]);
 
   const runTriage = async () => {
     if (!text.trim()) return;

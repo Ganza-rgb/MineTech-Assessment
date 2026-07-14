@@ -18,33 +18,36 @@ export default function App() {
 
   return (
     <div className="min-h-full bg-slate-50 text-slate-800">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="bg-[#442e24]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900">
-              MineTech | Operations Command
-            </h1>
-            <p className="text-xs text-slate-500">
-              Open-source LLM (Hugging Face) · no commercial APIs
-            </p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/minetech-logo-CAn3P09c.webp"
+              alt="MineTech"
+              className="h-9 w-auto brightness-0 invert"
+            />
+            <span className="text-sm font-medium text-[#e6e5aa] hidden sm:inline">
+              Operations Command
+            </span>
           </div>
-          <HealthPill health={health} />
+
+          <nav className="flex items-center gap-1">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                  tab === t.id
+                    ? 'bg-white/10 text-white'
+                    : 'text-[#e6e5aa]/70 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+            <HealthPill health={health} />
+          </nav>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 px-4">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`border-b-2 px-3 py-2 text-sm font-medium transition ${
-                tab === t.id
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
@@ -61,25 +64,18 @@ export default function App() {
 function HealthPill({ health }) {
   if (!health) {
     return (
-      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+      <span className="ml-3 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-200">
         backend offline
       </span>
     );
   }
   const mode = health.ai?.mode;
-  const isHf = mode === 'hf';
+  const docs = health.knowledge?.documents ?? 0;
+  const chunks = health.knowledge?.chunks ?? 0;
+
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span
-        className={`rounded-full px-3 py-1 font-medium ${
-          isHf ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-        }`}
-      >
-        {isHf ? 'LLM: self-hosted' : 'LLM: offline mock'}
-      </span>
-      <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-        KB: {health.knowledge?.documents ?? 0} docs · {health.knowledge?.chunks ?? 0} chunks
-      </span>
-    </div>
+    <span className="ml-3 hidden md:inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-[#e6e5aa]">
+      {mode === 'hf' ? 'LLM: self-hosted' : 'LLM: offline mock'} · {docs} docs · {chunks} chunks
+    </span>
   );
 }
