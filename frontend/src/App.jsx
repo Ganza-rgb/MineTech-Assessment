@@ -23,6 +23,7 @@ export default function App() {
 
   return (
     <div className="min-h-full bg-slate-50 text-slate-800">
+      {/* Header with logo */}
       <header className="bg-[#442e24]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -36,7 +37,8 @@ export default function App() {
             </span>
           </div>
 
-          <nav className="flex items-center gap-1">
+          {/* Desktop tabs - hidden on mobile */}
+          <nav className="hidden md:flex items-center gap-1">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -50,10 +52,28 @@ export default function App() {
                 {t.label}
               </button>
             ))}
-            {/* <HealthPill health={health} loading={loading} /> */}
           </nav>
         </div>
       </header>
+
+      {/* Mobile tabs - shown only on small screens beneath header */}
+      <nav className="md:hidden bg-white border-b border-slate-200">
+        <div className="mx-auto flex max-w-6xl items-center justify-center gap-1 px-4 py-2">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                tab === t.id
+                  ? 'bg-slate-100 text-slate-900'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         <ErrorBoundary>

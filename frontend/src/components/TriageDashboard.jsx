@@ -153,7 +153,7 @@ export default function TriageDashboard() {
           </button>
         </div>
 
-        <div className="overflow-y-auto max-h-[32rem]">
+        <div className="overflow-y-auto overflow-x-auto max-h-[32rem]">
           <table className="w-full table-fixed text-left text-sm">
             <colgroup>
               <col className="w-12" />

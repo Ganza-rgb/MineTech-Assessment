@@ -54,7 +54,7 @@ export default function KnowledgeAssistant() {
 
       </div>
 
-      <div className="h-[28rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth">
+      <div className="h-[50vh] min-h-[20rem] max-h-[40rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth">
         {initialLoading ? (
           <ChatSkeleton />
         ) : messages.length === 0 ? (
@@ -89,7 +89,7 @@ export default function KnowledgeAssistant() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-col sm:flex-row gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
