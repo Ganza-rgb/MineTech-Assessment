@@ -1,5 +1,7 @@
 node_modules/
 .env
+backend/.env
+frontend/.env
+frontend/dist/
 *.log
 .DS_Store
-dist/
