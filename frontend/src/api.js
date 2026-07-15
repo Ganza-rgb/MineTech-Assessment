@@ -1,4 +1,5 @@
-const BASE = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const BASE = `${API_BASE_URL}/api`;
 
 async function req(url, options) {
   const res = await fetch(url, {
@@ -13,23 +14,23 @@ async function req(url, options) {
 }
 
 export const api = {
-  health: () => req(`${BASE}/health`),
-  ragStats: () => req(`${BASE}/rag/stats`),
-  ingest: () => req(`${BASE}/rag/ingest`, { method: 'POST' }),
+  health: () => req(`${API_BASE_URL}/api/health`),
+  ragStats: () => req(`${API_BASE_URL}/api/rag/stats`),
+  ingest: () => req(`${API_BASE_URL}/api/rag/ingest`, { method: 'POST' }),
 
   triage: (text, source = 'web') =>
-    req(`${BASE}/triage`, { method: 'POST', body: JSON.stringify({ text, source }) }),
+    req(`${API_BASE_URL}/api/triage`, { method: 'POST', body: JSON.stringify({ text, source }) }),
 
   listTickets: (params = {}) => {
     const qs = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v)
     ).toString();
-    return req(`${BASE}/tickets${qs ? `?${qs}` : ''}`);
+    return req(`${API_BASE_URL}/api/tickets${qs ? `?${qs}` : ''}`);
   },
 
   updateTicket: (id, status) =>
-    req(`${BASE}/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    req(`${API_BASE_URL}/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   ask: (question) =>
-    req(`${BASE}/rag/ask`, { method: 'POST', body: JSON.stringify({ question }) }),
+    req(`${API_BASE_URL}/api/rag/ask`, { method: 'POST', body: JSON.stringify({ question }) }),
 };

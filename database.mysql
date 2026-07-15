@@ -1,0 +1,109 @@
+-- ============================================================
+-- Database:     minetech
+-- Engine:       MySQL / MariaDB (InnoDB)
+-- Charset:      utf8mb4
+-- Source:       backend/src/config/db.js (initSchema)
+-- Use:          Import into cPanel > phpMyAdmin
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS `minetech`
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE `minetech`;
+
+-- ------------------------------------------------------------
+-- Table: tickets
+-- Stores triage results for support / feedback tickets.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `tickets`;
+
+CREATE TABLE `tickets` (
+  `id`              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `raw_text`        MEDIUMTEXT NOT NULL,
+  `category`        VARCHAR(50) DEFAULT NULL,
+  `priority`        VARCHAR(20) DEFAULT NULL,
+  `priority_reason` TEXT DEFAULT NULL,
+  `sentiment`       VARCHAR(20) DEFAULT NULL,
+  `language`        VARCHAR(10) DEFAULT NULL,
+  `key_entities`    JSON DEFAULT NULL,
+  `summary`         VARCHAR(512) DEFAULT NULL,
+  `suggested_reply` MEDIUMTEXT DEFAULT NULL,
+  `confidence`      FLOAT DEFAULT NULL,
+  `status`          VARCHAR(20) NOT NULL DEFAULT 'new',
+  `source`          VARCHAR(50) DEFAULT NULL,
+  `meta`            JSON DEFAULT NULL,
+  `created_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_category` (`category`),
+  INDEX `idx_priority` (`priority`),
+  INDEX `idx_status`   (`status`)
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Table: documents
+-- Knowledge-base document metadata.
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `documents`;
+
+CREATE TABLE `documents` (
+  `id`         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `title`      VARCHAR(255) DEFAULT NULL,
+  `source`     VARCHAR(512) DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Table: chunks
+-- Split document chunks used for RAG retrieval.
+-- Embeddings are stored as JSON arrays (computed in Node).
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `chunks`;
+
+CREATE TABLE `chunks` (
+  `id`          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `document_id` INT UNSIGNED NOT NULL,
+  `chunk_index` INT NOT NULL,
+  `content`     MEDIUMTEXT NOT NULL,
+  `embedding`   JSON DEFAULT NULL,
+  `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_doc` (`document_id`),
+  FULLTEXT INDEX `idx_content` (`content`),
+  CONSTRAINT `fk_chunks_document`
+    FOREIGN KEY (`document_id`)
+    REFERENCES `documents` (`id`)
+    ON DELETE CASCADE
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Sample data (optional — safe to remove for production)
+-- ============================================================
+
+INSERT INTO `tickets` (`raw_text`, `category`, `priority`, `priority_reason`, `sentiment`, `language`, `key_entities`, `summary`, `suggested_reply`, `confidence`, `status`, `source`, `meta`)
+VALUES
+  ('I cannot log in to my account after the password reset. The page keeps redirecting back to login.', 'Access & Login', 'high', 'User is completely blocked from accessing the account', 'negative', 'en', JSON_OBJECT('product','WebApp','feature','login'), 'User unable to log in after password reset', 'Please clear your browser cache and try again. If the issue persists, contact support with your account email.', 0.91, 'new', 'email', NULL),
+  ('Great product! The new dashboard is much faster. Suggestion: add a dark mode toggle.', 'Feature Request', 'low', 'Feedback is non-blocking and feature-related', 'positive', 'en', JSON_OBJECT('product','WebApp','feature','dashboard'), 'User praises performance and requests dark mode', 'Thank you for your feedback! We will consider adding a dark mode toggle in a future release.', 0.87, 'new', 'email', NULL),
+  ('Payment failed twice today. I was charged but the invoice still shows unpaid.', 'Billing & Payments', 'high', 'Financial impact: user charged but invoice unresolved', 'negative', 'en', JSON_OBJECT('product','WebApp','feature','billing'), 'Payment failed but user was still charged', 'We have escalated this to our billing team. Please allow 24-48 hours for the charge to reconcile.', 0.94, 'new', 'email', NULL),
+  ('How do I export my data to CSV? I looked in settings but could not find it.', 'How-to / Support', 'medium', 'User needs guidance on existing feature', 'neutral', 'en', JSON_OBJECT('product','WebApp','feature','export'), 'User asking how to export data to CSV', 'Go to Settings > Data > Export and select CSV format. The file will be emailed to you within minutes.', 0.88, 'new', 'email', NULL),
+  ('The mobile app crashes every time I open the camera feature on iOS 16.', 'Bug Report', 'high', 'Critical functionality broken on a specific platform', 'negative', 'en', JSON_OBJECT('product','MobileApp','platform','iOS 16','feature','camera'), 'iOS app crashes on camera feature', 'We are aware of this issue and a fix is scheduled for the next update (v2.4.1).', 0.92, 'new', 'email', NULL);
+
+INSERT INTO `documents` (`title`, `source`)
+VALUES
+  ('Getting Started Guide', 'internal-wiki'),
+  ('API Reference', 'internal-wiki'),
+  ('Troubleshooting FAQ', 'internal-wiki');
+
+INSERT INTO `chunks` (`document_id`, `chunk_index`, `content`, `embedding`)
+VALUES
+  (1, 0, 'Welcome to the platform. To get started, create an account, verify your email, and complete your profile setup.', JSON_ARRAY()),
+  (1, 1, 'You can log in using your email and password. If you forget your password, use the Forgot Password link.', JSON_ARRAY()),
+  (2, 0, 'The REST API uses Bearer tokens for authentication. Include the token in the Authorization header.', JSON_ARRAY()),
+  (3, 0, 'Common issues include login failures, payment errors, and slow uploads. Check our FAQ for step-by-step fixes.', JSON_ARRAY());
