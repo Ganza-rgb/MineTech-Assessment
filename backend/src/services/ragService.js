@@ -198,7 +198,7 @@ export async function answer(query) {
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
 
-    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}`;
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nWhen answering, cite your sources using the format [1], [2], etc. based on the provided context.\n\nRelevant information:\n${context}`;
 
     modelOut = await ai.generate({
       system: systemPrompt,
