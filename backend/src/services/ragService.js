@@ -200,11 +200,14 @@ export async function answer(query) {
 
     systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nWhen answering, cite your sources using the format [1], [2], etc. based on the provided context.\n\nRelevant information:\n${context}`;
 
+    console.log('RAG SYSTEM PROMPT:', systemPrompt);
+    console.log('RAG QUESTION:', query);
     modelOut = await ai.generate({
       system: systemPrompt,
       prompt: query,
       temperature: 0.7,
     });
+    console.log('RAG MODEL OUTPUT:', modelOut);
 
     const usedCitations = [];
     relevant.forEach((r, i) => {
@@ -221,11 +224,14 @@ export async function answer(query) {
     grounded = citations.length > 0;
     confidence = Number(relevant[0].cosine.toFixed(3));
   } else {
+    console.log('RAG SYSTEM PROMPT:', SYSTEM_INSTRUCTIONS);
+    console.log('RAG QUESTION:', query);
     modelOut = await ai.generate({
-      system: systemPrompt,
+      system: SYSTEM_INSTRUCTIONS,
       prompt: query,
       temperature: 0.7,
     });
+    console.log('RAG MODEL OUTPUT:', modelOut);
     confidence = 0;
   }
 
