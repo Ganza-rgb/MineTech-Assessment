@@ -17,19 +17,18 @@ export const config = {
     connectionLimit: Number(process.env.MYSQL_POOL) || 10,
   },
 
-  // LLM Mode: 'local', 'cloud', or 'auto' (auto switches based on network)
+  // LLM Mode: 'ollama', 'mock', or 'auto' (auto switches based on network/model availability)
   llm: {
-    mode: process.env.LLM_MODE || 'cloud', // 'local' | 'cloud' | 'auto'
-    cloudProvider: process.env.CLOUD_PROVIDER || 'hf', // 'hf' = Hugging Face Inference API
-    cloudApiUrl: process.env.CLOUD_API_URL || 'https://api-inference.huggingface.co',
-    cloudApiKey: process.env.CLOUD_API_KEY || '', // Add your HF token here
-    cloudModel: process.env.CLOUD_MODEL || 'Qwen/Qwen2.5-0.5B-Instruct',
-
-    // Local HF model settings
-    hfModelId: process.env.HF_MODEL_ID || 'onnx-community/Qwen2.5-0.5B-Instruct',
-    hfEmbedModelId: process.env.HF_EMBED_MODEL_ID || 'Xenova/all-MiniLM-L6-v2',
-    dtype: process.env.HF_DTYPE || 'q4',
-    device: process.env.TRANSFORMERS_DEVICE || 'cpu',
+    mode: process.env.LLM_MODE || 'ollama', // 'ollama' | 'mock' | 'auto'
+    // Ollama settings (self-hosted)
+    ollama: {
+      endpoint: process.env.OLLAMA_ENDPOINT || 'http://localhost:11434',
+      model: process.env.OLLAMA_MODEL || 'qwen2.5:1.5b',
+    },
+    // Mock mode for testing
+    mock: {
+      // No additional config needed
+    },
     temperature: Number(process.env.LLM_TEMP) ?? 0.2,
     maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256, // Reduced for speed
   },
