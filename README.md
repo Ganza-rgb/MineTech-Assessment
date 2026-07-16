@@ -1,18 +1,13 @@
-# Minetech Assessment — Open-Source LLM: Intake Triage + Knowledge Assistant
+# Minetech Assessment — Self-Hosted LLM: Intake Triage + Knowledge Assistant
 
-A full-stack app that serves an open-source LLM via free cloud inference (Hugging Face)
-and builds two features on top of it — no OpenAI/Anthropic/Gemini, no money spent:
+A full-stack app that serves an open-source LLM via **self-hosted Ollama** (no external APIs) and builds two features on top of it — no OpenAI/Anthropic/Gemini, no money spent:
 
-1. **Smart Intake Triage** — turn free-text tickets/feedback into validated,
-   structured JSON (category, priority, extracted fields, drafted reply) shown
-   in a filterable dashboard. Malformed model output is handled gracefully.
-2. **Knowledge Assistant** — answer questions with a free open-source LLM. In cloud
-   mode, answers come directly from the model for speed. In local mode, a RAG
-   pipeline retrieves relevant chunks from a MySQL-backed knowledge base and grounds
-   the answer with citations.
+1. **Smart Intake Triage** — turn free-text tickets/feedback into validated, structured JSON (category, priority, extracted fields, drafted reply) shown in a filterable dashboard. Malformed model output is handled gracefully.
+2. **Knowledge Assistant** — answer questions with a self-hosted open-source LLM. Retrieves relevant context from a MySQL-backed knowledge base and grounds the answer with citations. Clearly indicates when the answer is not in the knowledge base.
 
-> **Stack:** Node + Express · React + Tailwind (Vite) · MySQL · Hugging Face
-> Inference API (cloud) / Transformers.js ONNX (local fallback).
+> **Stack:** Node + Express · React + Tailwind (Vite) · MySQL · **Ollama (self-hosted)**
+> 
+> **Model:** Qwen2.5-1.5B (via Ollama) — runs completely free on local hardware
 
 ---
 
@@ -20,9 +15,9 @@ and builds two features on top of it — no OpenAI/Anthropic/Gemini, no money sp
 
 - **Node.js 20+** and **npm**
 - **MySQL** (local or remote). The app creates tables automatically on boot.
-- A free [Hugging Face token](https://huggingface.co/settings/tokens) for cloud inference.
-- Internet access for cloud mode. Local mode needs ~1 GB disk for model weights
-  (cached after first download in `~/.cache/huggingface`).
+- **Ollama** installed and running (https://ollama.com/download)
+  - Pull the model: `ollama pull qwen2.5:1.5b`
+  - Verify it's running: `ollama list` should show `qwen2.5:1.5b`
 
 ---
 
@@ -46,78 +41,104 @@ npm install
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` and set your MySQL credentials (`MYSQL_HOST`, `MYSQL_USER`,
-`MYSQL_PASSWORD`, `MYSQL_DATABASE`). Defaults assume a local MySQL.
+Edit `backend/.env` and set your MySQL credentials (`MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`). Defaults assume a local MySQL.
 
-Key settings:
+Key settings (already pre-configured for Ollama):
 
 ```ini
-# Default mode: cloud (fast, no local model download)
-LLM_MODE=cloud
+# Server
+PORT=4000
 
-# Cloud inference via Hugging Face
-CLOUD_MODEL=Qwen/Qwen2.5-0.5B-Instruct
-CLOUD_API_KEY=hf_...
+# MySQL (update with your credentials)
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=1234
+MYSQL_DATABASE=minetech
 
-# Local fallback (optional, requires @huggingface/transformers — already installed)
-HF_MODEL_ID=onnx-community/Qwen2.5-0.5B-Instruct
-HF_EMBED_MODEL_ID=Xenova/all-MiniLM-L6-v2
-HF_DTYPE=q4
-TRANSFORMERS_DEVICE=cpu
+# LLM Provider - OLLAMA (SELF-HOSTED)
+LLM_MODE=ollama
+
+# Ollama configuration
+OLLAMA_ENDPOINT=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:1.5b
+
+# Generation parameters
+LLM_TEMP=0.7
+LLM_MAX_TOKENS=128
+
+# RAG settings
+RAG_CHUNK_SIZE=600
+RAG_CHUNK_OVERLAP=100
+RAG_TOP_K=4
+RAG_SIM_THRESHOLD=0.2
+RAG_LEXICAL_WEIGHT=0.3
 ```
+
+> 💡 **Note**: The `.env` file is already configured for Ollama by default. You only need to update MySQL credentials if different from the defaults.
 
 ---
 
 ## 4. Run the app
 
+### Terminal 1 — Start Ollama (if not running as service)
 ```bash
-# Terminal 1 — backend
+ollama serve
+```
+*Leave this running in the background*
+
+### Terminal 2 — Backend
+```bash
 cd backend
 npm run dev
+```
 
-# Terminal 2 — ingest the knowledge base into MySQL (run once)
+### Terminal 3 — Ingest knowledge base (run once)
+```bash
+cd backend
 npm run ingest
+```
 
-# Terminal 3 — frontend
+### Terminal 4 — Frontend
+```bash
 cd ../frontend
 npm run dev
 ```
 
 Open the frontend URL (default http://localhost:5173).
 
-### Cloud vs. Local
-
-| Mode | How it works | When to use |
-|------|--------------|-------------|
-| `cloud` (default) | Calls Hugging Face Inference API for generation and embeddings. Fast, no local download. | Everyday use; needs internet + HF token |
-| `local` | Loads ONNX weights via Transformers.js. Slower on CPU, works offline after first download. | Air-gapped environments; no HF token |
-| `mock` | Deterministic heuristic responses. No model needed. | CI / smoke testing |
-
-In **cloud mode**, the Knowledge Assistant answers directly from the model with topic restriction enforced via system prompt — fast, no retrieval overhead. In **local mode**, it runs full RAG retrieval over the MySQL-backed knowledge base with citations.
-
 ---
 
 ## 5. Use the features
 
 ### Smart Intake Triage
-Paste a message (or click a *Sample*), hit **Run triage**. The structured JSON +
-drafted reply appears, and the row lands in the filterable table. Filter by
-category, priority, or status, or search by keyword. Change ticket status inline.
+1. Paste a message (or click a *Sample*) in the Triage tab
+2. Hit **Run triage**
+3. View structured JSON output with:
+   - Category (billing/technical/account/feature_request/feedback/other)
+   - Priority (low/medium/high/urgent) with justification
+   - Extracted entities (email, order_id, etc.)
+   - Summary and suggested reply
+   - Confidence score
+4. The result appears in the dashboard table below
+5. Filter by category, priority, status, or search keyword
+6. Update ticket status inline (new → in-progress → resolved)
 
 ### Knowledge Assistant
-Ask a question (or click a suggestion). The assistant runs RAG retrieval in both cloud and local modes:
-- **Relevant docs found:** The answer is grounded in the matched passages, with citation indexes like `[1]` and `[2]` pointing to the source file.
-- **No relevant docs:** The model refuses to answer off-topic questions (sports, politics, entertainment, etc.) and redirects the user to MineTech-related topics.
-
-The assistant is restricted to MineTech operations, safety, technical support, billing, and account topics only.
-
-To add your own documents, drop `.txt` / `.md` files into `backend/data/` and click
-**Re-ingest KB** in the UI, or run:
-
-```bash
-cd backend
-npm run ingest
-```
+1. Switch to the Knowledge Assistant tab
+2. Ask a question about MineTech operations, safety, technical support, billing, or account access
+3. View the answer with:
+   - **Citations** ([1], [2]) when grounded in the knowledge base
+   - **Grounded status** indicator (true/false)
+   - **Confidence score** (0-1)
+4. If the question is outside the knowledge base:
+   - The model will respond that it doesn't have that information
+   - `grounded: false` and `confidence: 0`
+   - No citations will be shown
+5. Click suggestion buttons for common queries
+6. Add your own documents:
+   - Place `.txt` or `.md` files in `backend/data/`
+   - Click **Re-ingest KB** in the UI, or run `npm run ingest` in backend
 
 ---
 
@@ -128,11 +149,12 @@ npm run ingest
 | GET | `/api/health` | Provider mode + KB stats |
 | POST | `/api/triage` | Classify/extract/draft one message → JSON |
 | GET | `/api/tickets` | List tickets (`?category&priority&status&q`) |
-| PATCH | `/api/tickets/:id` | Update status |
-| POST | `/api/rag/ask` | Answer + citations (cloud: fast, topic-restricted; local: grounded RAG) |
-| POST | `/api/rag/retrieve` | Raw retrieved passages (debug, local only) |
+| PATCH | `/api/tickets/:id` | Update ticket status |
+| POST | `/api/rag/ask` | Answer + citations (grounded RAG) |
+| POST | `/api/rag/retrieve` | Raw retrieved passages (debug) |
 | POST | `/api/rag/ingest` | Re-ingest `backend/data/*.txt` |
 | POST | `/api/rag/ingest/text` | Ingest an arbitrary pasted doc |
+| GET | `/api/rag/stats` | Knowledge base statistics |
 
 ---
 
@@ -140,26 +162,43 @@ npm run ingest
 
 ```
 frontend/  React+Tailwind  ──/api/*──►  backend/  Express
-                                     ├─ services/aiService      (model boundary)
+                                     ├─ services/aiService      (Ollama boundary)
                                      ├─ services/triageService  (Use Case 1)
                                      ├─ services/ragService     (Use Case 2)
                                      └─ config/db               (MySQL)
-                                           ▲
+                                               ▲
                                     backend/data/*.txt  (knowledge base)
 ```
 
-The model is isolated behind `aiService` (`generate` + `embed`). Swapping the
-provider (e.g. to a GPU vLLM endpoint) touches only that file.
+The Ollama model is isolated behind `aiService` (`generate` + `embed`). Swapping to another self-hosted provider (like vLLM or LM Studio) only requires changing that file.
 
 ---
 
-## 8. Notes & limitations
+## 8. Notes & Limitations
 
-- Embeddings are stored as JSON arrays in MySQL; similarity is computed in Node
-  (fine for small KBs). For scale, move to MySQL `VECTOR` (8.0.32+) or pgvector.
-- Switching models requires re-running `npm run ingest` (embeddings are
-  model-specific).
-- The `mock` provider is heuristic-only and is **not** used for evaluation of the
-  model; set `LLM_MODE=cloud` or `LLM_MODE=local` for the real path.
+- Embeddings are stored as JSON arrays in MySQL; similarity is computed in Node (efficient for <1000 chunks)
+- Switching the Ollama model requires re-running `npm run ingest` (embeddings are model-specific)
+- The `ollama` service must be running for the app to function
+- First model load may take 10-20 seconds as Ollama loads it into memory
+- Subsequent requests are fast (typically 1-3 seconds for this model size)
 
-See `DECISION_MEMO.md` for the engineering rationale.
+---
+
+## 9. Decision Rationale
+
+See [DECISION_MEMO.md](./DECISION_MEMO.md) for detailed explanation of:
+- Model choice (Qwen2.5-1.5B via Ollama)
+- Quantization approach (Q4_K_M, balanced for CPU/GPU)
+- Retrieval strategy (cosine similarity with keyword fallback)
+- Hallucination mitigation (structured output validation, grounded answering with citations)
+- Latency vs. hardware trade-offs (optimized for free-tier local execution)
+- Assumptions made on ambiguous requirements
+
+---
+
+**Ready for evaluation?**  
+1. Start Ollama (`ollama serve`)
+2. Start backend (`npm run dev` in backend)
+3. Ingest knowledge base (`npm run ingest` in backend)
+4. Start frontend (`npm run dev` in frontend)
+5. Visit http://localhost:5173 and demonstrate both features
