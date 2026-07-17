@@ -202,12 +202,6 @@ export async function retrieve(query, topK = config.rag.topK) {
 
   console.log('[rag] Top result similarity:', scored[0]?.cosine?.toFixed(3));
 
-  // Sort by cosine similarity
-  scored.sort((a, b) => b.cosine - a.cosine);
-
-  // Filter by threshold
-  const relevant = scored.filter((s) => s.cosine >= config.rag.similarityThreshold);
-
   return {
     results: scored.slice(0, topK).map((s, i) => ({ ...s, rank: i + 1 })),
     relevant: relevant.slice(0, topK),
