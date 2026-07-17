@@ -36,8 +36,10 @@ export default function KnowledgeAssistant() {
     setMessages((m) => [...m, { role: 'user', content: question }]);
     setLoading(true);
     try {
+      const startTime = Date.now();
       const res = await api.ask(question);
-      setMessages((m) => [...m, { role: 'assistant', ...res }]);
+      const latency = Date.now() - startTime;
+      setMessages((m) => [...m, { role: 'assistant', ...res, latency }]);
     } catch (e) {
       setMessages((m) => [...m, { role: 'assistant', content: e.message, error: true }]);
     } finally {
@@ -51,7 +53,6 @@ export default function KnowledgeAssistant() {
         <p className="text-sm text-slate-500">
           Ask questions about operations, safety, or technical support.
         </p>
-
       </div>
 
       <div className="h-[50vh] min-h-[20rem] max-h-[40rem] space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scroll-smooth">
@@ -110,6 +111,8 @@ export default function KnowledgeAssistant() {
 }
 
 function ChatBubble({ m }) {
+  const [showContext, setShowContext] = useState(false);
+
   if (m.role === 'user') {
     return (
       <div className="flex justify-end">
@@ -119,31 +122,78 @@ function ChatBubble({ m }) {
       </div>
     );
   }
+
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-800">
+      <div className="max-w-[85%] rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-800">
         {m.error ? (
           <span className="text-red-600">{m.content}</span>
         ) : (
           <>
-            <p className="whitespace-pre-wrap">{m.content}</p>
+            {/* Layer 1: Answer Layer */}
+            <div className="whitespace-pre-wrap">{m.content}</div>
+
+            {/* Layer 2: Citation Labels Layer */}
             {m.citations?.length > 0 && (
-              <div className="mt-2 border-t border-slate-200 pt-2">
-                <p className="mb-2 text-xs font-semibold text-slate-500">Sources</p>
-                <ul className="space-y-2">
-                  {m.citations.map((c) => (
-                    <li key={c.chunk_id} className="rounded bg-white p-2 text-xs">
-                      <span className="font-mono font-semibold text-indigo-600">[{c.index}]</span>{' '}
-                      <span className="font-medium text-slate-700">{c.document}</span>
-                      <p className="mt-1 text-slate-500 line-clamp-2">{c.snippet}</p>
-                    </li>
-                  ))}
-                </ul>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {m.citations.map((c) => (
+                  <button
+                    key={c.chunk_id}
+                    onClick={() => setShowContext(!showContext)}
+                    className="flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs font-medium text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-50 transition-colors"
+                  >
+                    <span className="font-mono font-bold">[{c.index}]</span>
+                    <span>{c.document}</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                ))}
               </div>
             )}
+
+            {/* Layer 3: Context Preview Dropdown */}
+            {showContext && m.citations?.length > 0 && (
+              <div className="mt-3 rounded-lg bg-white border border-slate-200 overflow-hidden">
+                <div className="bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200">
+                  📄 Retrieved Source Chunks
+                </div>
+                <div className="max-h-40 overflow-y-auto">
+                  {m.citations.map((c, idx) => (
+                    <div key={idx} className="px-3 py-2 text-xs border-b border-slate-100 last:border-0">
+                      <span className="font-mono font-semibold text-indigo-600">[{c.index}]</span>
+                      <p className="mt-1 text-slate-600">{c.snippet}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Layer 4: Trace Metadata Layer */}
+            <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 border-t border-slate-200 pt-2">
+              {m.latency && (
+                <span>⏱️ Latency: {m.latency}ms</span>
+              )}
+              {m.confidence !== undefined && m.confidence > 0 && (
+                <span>📊 Confidence: {(m.confidence * 100).toFixed(0)}%</span>
+              )}
+              <span className={`flex items-center gap-1 ${m.grounded ? 'text-green-600' : 'text-yellow-600'}`}>
+                {m.grounded ? '✓ Grounded' : '⚠ Ungrounded'}
+              </span>
+            </div>
+
+            {/* Out of Scope Warning */}
             {m.grounded === false && (
-              <div className="mt-2 rounded bg-yellow-50 p-2 text-xs text-yellow-700">
-                ⚠️ This answer is not grounded in the knowledge base.
+              <div className="mt-3 rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800 border border-yellow-200">
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-600">⚠️</span>
+                  <div>
+                    <p className="font-semibold">Not in Knowledge Base</p>
+                    <p className="mt-1 text-yellow-700">
+                      This answer is not grounded in the knowledge base. The system could not find relevant information to answer your question.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </>

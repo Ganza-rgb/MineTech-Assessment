@@ -246,8 +246,11 @@ function computeCosine(a, b) {
 
 export async function answer(query) {
   const ai = await getAI();
+  const startTime = Date.now();
 
+  const retrieveStart = Date.now();
   const { relevant } = await retrieve(query);
+  const retrieveTime = Date.now() - retrieveStart;
 
   let modelOut;
   let citations = [];
@@ -269,12 +272,14 @@ export async function answer(query) {
       console.log(`[${i + 1}] (score: ${r.cosine.toFixed(3)}) ${r.document}: ${r.content.slice(0, 100)}...`);
     });
 
+    const genStart = Date.now();
     modelOut = await ai.generate({
       system: systemPrompt,
       prompt: query,
       temperature: 0.1, // Low temperature for factual consistency
       maxTokens: 256
     });
+    const genTime = Date.now() - genStart;
 
     console.log('=== RAG MODEL OUTPUT ===');
     console.log(modelOut);
@@ -320,6 +325,15 @@ export async function answer(query) {
           break;
         }
       }
+    }
+
+    // Add timing info to citations for display
+    if (usedCitations.length > 0) {
+      usedCitations[0].metadata = {
+        retrieveTime,
+        genTime,
+        totalTime: Date.now() - startTime
+      };
     }
 
     // Fallback: if we have relevant context and model didn't say "don't know",
@@ -370,12 +384,15 @@ export async function answer(query) {
     confidence = 0;
   }
 
+  const totalTime = Date.now() - startTime;
+
   return {
     content: modelOut.trim(),
     citations,
     grounded,
     confidence,
-    provider: 'ollama'
+    provider: 'ollama',
+    latency: totalTime
   };
 }
 
