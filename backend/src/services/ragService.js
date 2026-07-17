@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as lancedb from '@lancedb/lancedb';
+import { connect } from '@lancedb/lancedb';
 import { config } from '../config/config.js';
 import { getAI } from './aiService.js';
 
@@ -22,7 +22,7 @@ async function getDb() {
     fs.mkdirSync(LANCE_DIR, { recursive: true });
   }
 
-  _db = await lancedb.connect(LANCE_DIR);
+  _db = await connect(LANCE_DIR);
   return _db;
 }
 
@@ -38,18 +38,13 @@ async function getTable() {
     return _table;
   }
 
-  // Define schema with proper LanceDB field types
-  const schema = new lancedb.Schema([
-    lancedb.field('id', new lancedb.Int32()),
-    lancedb.field('document_id', new lancedb.Int32()),
-    lancedb.field('document_title', new lancedb.Utf8()),
-    lancedb.field('chunk_index', new lancedb.Int32()),
-    lancedb.field('content', new lancedb.Utf8()),
-    lancedb.field('embedding', new lancedb.FixedSizeList(lancedb.Float32, 768)),
+  // Create empty table - schema will be inferred when data is added
+  _table = await db.createTable('chunks', [
+    { id: 0, document_id: 0, document_title: '', chunk_index: 0, content: '', embedding: new Array(768).fill(0) }
   ]);
 
-  // Create table with data and schema
-  _table = await db.createTable('chunks', [], { schema });
+  // Delete the placeholder row
+  await _table.delete('id = 0');
 
   return _table;
 }
