@@ -23,22 +23,22 @@ export const config = {
     // Ollama settings (self-hosted)
     ollama: {
       endpoint: process.env.OLLAMA_ENDPOINT || 'http://localhost:11434',
-      model: process.env.OLLAMA_MODEL || 'qwen2.5:1.5b',
+      model: process.env.OLLAMA_MODEL || 'qwen2.5:0.5b',
       embedModel: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
     },
     // Mock mode for testing
     mock: {
       // No additional config needed
     },
-    temperature: Number(process.env.LLM_TEMP) ?? 0.2,
-    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256, // Reduced for speed
+    temperature: Number(process.env.LLM_TEMP) ?? 0.1, // Low for factual consistency
+    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256,
   },
 
   rag: {
     chunkSize: Number(process.env.RAG_CHUNK_SIZE) || 600,
     chunkOverlap: Number(process.env.RAG_CHUNK_OVERLAP) || 100,
-    topK: Number(process.env.RAG_TOP_K) || 5, // Increased for better recall
-    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.35, // Higher threshold for quality
+    topK: Number(process.env.RAG_TOP_K) || 5,
+    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.15, // Lower for better recall
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
     knowledgeGlob: 'data/*.txt',
   },
