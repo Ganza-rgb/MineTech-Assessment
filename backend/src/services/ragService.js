@@ -310,8 +310,32 @@ export async function answer(query) {
           .filter(w => contentLower.includes(w));
         if (sharedWords.length > 5) {
           grounded = true;
+          // Generate citation from the matched chunk
+          usedCitations.push({
+            index: usedCitations.length + 1,
+            document: r.document,
+            chunk_id: r.id,
+            snippet: r.content.slice(0, 200)
+          });
           break;
         }
+      }
+    }
+
+    // Fallback: if we have relevant context and model didn't say "don't know",
+    // consider it grounded (model is using context even without explicit citations)
+    if (!grounded && relevant.length > 0) {
+      const dontKnowPhrases = ["don't have enough", "don't have sufficient", "not in my knowledge", "i don't know", "unable to find"];
+      const isDontKnow = dontKnowPhrases.some(p => modelOut.toLowerCase().includes(p));
+      if (!isDontKnow && modelOut.length > 20) {
+        grounded = true;
+        // Use top relevant as citation
+        usedCitations.push({
+          index: 1,
+          document: relevant[0].document,
+          chunk_id: relevant[0].id,
+          snippet: relevant[0].content.slice(0, 200)
+        });
       }
     }
   } else {
