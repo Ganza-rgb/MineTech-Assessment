@@ -175,10 +175,19 @@ export async function retrieve(query, topK = config.rag.topK) {
   const table = await getTable();
 
   // Use LanceDB vector search
-  const results = await table
+  let results = await table
     .vectorSearch(queryEmbedding)
-    .limit(topK * 2) // Get more to filter by threshold
+    .limit(topK * 2)
     .execute();
+
+  // Convert to array if needed
+  if (typeof results.toArray === 'function') {
+    results = await results.toArray();
+  }
+
+  if (!Array.isArray(results) || results.length === 0) {
+    return { results: [], relevant: [], queryEmbedding };
+  }
 
   // Calculate cosine similarity for each result
   const scored = results.map((r) => {
