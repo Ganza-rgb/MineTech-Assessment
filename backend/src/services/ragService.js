@@ -174,34 +174,33 @@ export async function retrieve(query, topK = config.rag.topK) {
 
   const table = await getTable();
 
-  // Use LanceDB vector search
-  let results = await table
-    .vectorSearch(queryEmbedding)
-    .limit(topK * 2)
-    .execute();
+  // Full scan - compute similarity for all records (more reliable than vector search)
+  const allData = await table.query().limit(100).toArray();
 
-  // Convert to array if needed
-  if (typeof results.toArray === 'function') {
-    results = await results.toArray();
-  }
-
-  if (!Array.isArray(results) || results.length === 0) {
+  if (!Array.isArray(allData) || allData.length === 0) {
     return { results: [], relevant: [], queryEmbedding };
   }
 
   // Calculate cosine similarity for each result
-  const scored = results.map((r) => {
+  const scored = allData.map((r) => {
     const emb = r.embedding || [];
-    const cosine = computeCosine(queryEmbedding, emb);
     return {
       id: r.id,
       document_id: r.document_id,
       document: r.document_title,
       chunk_index: r.chunk_index,
       content: r.content,
-      cosine: cosine
+      cosine: computeCosine(queryEmbedding, emb)
     };
   });
+
+  // Sort by cosine similarity
+  scored.sort((a, b) => b.cosine - a.cosine);
+
+  // Filter by threshold
+  const relevant = scored.filter((s) => s.cosine >= config.rag.similarityThreshold);
+
+  console.log('[rag] Top result similarity:', scored[0]?.cosine?.toFixed(3));
 
   // Sort by cosine similarity
   scored.sort((a, b) => b.cosine - a.cosine);
@@ -352,8 +351,8 @@ export async function answer(query) {
 export async function knowledgeStats() {
   try {
     const table = await getTable();
-    const count = await table.count();
-    return { chunks: count, documents: 'N/A (see files in data/)' };
+    const data = await table.query().limit(1000).toArray();
+    return { chunks: data.length, documents: 'N/A (see files in data/)' };
   } catch {
     return { chunks: 0, documents: 0 };
   }
