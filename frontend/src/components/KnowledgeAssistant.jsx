@@ -169,19 +169,6 @@ function ChatBubble({ m }) {
               </div>
             )}
 
-            {/* Layer 4: Trace Metadata Layer */}
-            <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 border-t border-slate-200 pt-2">
-              {m.latency && (
-                <span>⏱️ Latency: {m.latency}ms</span>
-              )}
-              {m.confidence !== undefined && m.confidence > 0 && (
-                <span>📊 Confidence: {(m.confidence * 100).toFixed(0)}%</span>
-              )}
-              <span className={`flex items-center gap-1 ${m.grounded ? 'text-green-600' : 'text-yellow-600'}`}>
-                {m.grounded ? '✓ Grounded' : '⚠ Ungrounded'}
-              </span>
-            </div>
-
             {/* Out of Scope Warning */}
             {m.grounded === false && (
               <div className="mt-3 rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800 border border-yellow-200">
