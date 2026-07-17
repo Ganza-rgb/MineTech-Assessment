@@ -183,14 +183,29 @@ export async function retrieve(query, topK = config.rag.topK) {
 
   // Calculate cosine similarity for each result
   const scored = allData.map((r) => {
-    const emb = r.embedding || [];
+    // Handle embedding - could be array, typed array, or object with values
+    let emb = r.embedding;
+    if (emb && typeof emb === 'object') {
+      if (Array.isArray(emb)) {
+        emb = emb;
+      } else if (emb.values) {
+        emb = Array.from(emb.values);
+      } else if (emb.toArray) {
+        emb = emb.toArray();
+      }
+    } else if (!emb) {
+      emb = [];
+    }
+
+    const cosine = computeCosine(queryEmbedding, emb);
+
     return {
       id: r.id,
       document_id: r.document_id,
       document: r.document_title,
       chunk_index: r.chunk_index,
       content: r.content,
-      cosine: computeCosine(queryEmbedding, emb)
+      cosine: cosine
     };
   });
 
