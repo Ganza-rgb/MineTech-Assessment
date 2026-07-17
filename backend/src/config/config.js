@@ -36,8 +36,8 @@ export const config = {
   rag: {
     chunkSize: Number(process.env.RAG_CHUNK_SIZE) || 600,
     chunkOverlap: Number(process.env.RAG_CHUNK_OVERLAP) || 100,
-    topK: Number(process.env.RAG_TOP_K) || 4,
-    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.2, // Lowered for more matches
+    topK: Number(process.env.RAG_TOP_K) || 5, // Increased for better recall
+    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.35, // Higher threshold for quality
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
     knowledgeGlob: 'data/*.txt',
   },

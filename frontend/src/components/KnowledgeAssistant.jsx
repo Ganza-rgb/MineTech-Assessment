@@ -129,15 +129,21 @@ function ChatBubble({ m }) {
             <p className="whitespace-pre-wrap">{m.content}</p>
             {m.citations?.length > 0 && (
               <div className="mt-2 border-t border-slate-200 pt-2">
-                <p className="mb-1 text-xs font-semibold text-slate-500">Sources</p>
-                <ul className="space-y-1">
+                <p className="mb-2 text-xs font-semibold text-slate-500">Sources</p>
+                <ul className="space-y-2">
                   {m.citations.map((c) => (
-                    <li key={c.chunk_id} className="text-xs text-slate-500">
-                      <span className="font-mono text-indigo-600">[{c.index}]</span>{' '}
-                      {c.document}
+                    <li key={c.chunk_id} className="rounded bg-white p-2 text-xs">
+                      <span className="font-mono font-semibold text-indigo-600">[{c.index}]</span>{' '}
+                      <span className="font-medium text-slate-700">{c.document}</span>
+                      <p className="mt-1 text-slate-500 line-clamp-2">{c.snippet}</p>
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {m.grounded === false && (
+              <div className="mt-2 rounded bg-yellow-50 p-2 text-xs text-yellow-700">
+                ⚠️ This answer is not grounded in the knowledge base.
               </div>
             )}
           </>
