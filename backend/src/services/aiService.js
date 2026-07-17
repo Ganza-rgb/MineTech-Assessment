@@ -5,6 +5,7 @@ class OllamaAI {
     this.mode = 'ollama';
     this.endpoint = config.llm.ollama.endpoint;
     this.model = config.llm.ollama.model;
+    this.embedModel = config.llm.ollama.embedModel || 'nomic-embed-text';
   }
 
   async generate({ system, prompt, temperature, maxTokens }) {
@@ -51,7 +52,7 @@ class OllamaAI {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: this.model,
+          model: this.embedModel,
           prompt: text,
         })
       });

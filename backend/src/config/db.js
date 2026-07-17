@@ -3,11 +3,7 @@ import { config } from './config.js';
 
 /**
  * MySQL connection pool (local XAMPP / remote compatible).
- *
- * The database is created on first initSchema() via a throwaway connection
- * that has NO default database (so it can issue CREATE DATABASE). The pool
- * itself is created WITH the database selected, so every pooled connection
- * connects straight into `minetech` once it exists.
+ * Lazy-loaded to allow server to start without MySQL.
  */
 const base = {
   host: config.mysql.host,
@@ -21,7 +17,25 @@ const base = {
 
 const dbName = config.mysql.database;
 
-export const pool = mysql.createPool({ ...base, database: dbName });
+let _pool = null;
+
+export function getPool() {
+  if (!_pool) {
+    _pool = mysql.createPool({ ...base, database: dbName });
+  }
+  return _pool;
+}
+
+export const pool = {
+  query: async (...args) => {
+    const p = getPool();
+    return p.query(...args);
+  },
+  getConnection: async () => {
+    const p = getPool();
+    return p.getConnection();
+  }
+};
 
 /**
  * Idempotent schema bootstrap: create the database (if missing) with a

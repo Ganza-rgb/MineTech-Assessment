@@ -24,6 +24,7 @@ export const config = {
     ollama: {
       endpoint: process.env.OLLAMA_ENDPOINT || 'http://localhost:11434',
       model: process.env.OLLAMA_MODEL || 'qwen2.5:1.5b',
+      embedModel: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
     },
     // Mock mode for testing
     mock: {
