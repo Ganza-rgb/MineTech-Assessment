@@ -249,17 +249,7 @@ function ChatBubble({ m, onCopy, copied }) {
             {!isFallback && m.citations?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {m.citations.map((c, i) => (
-                  <span
-                    key={i}
-                    className="group/cite relative inline-flex items-center gap-1.5 rounded-full bg-[#F7F4EF] px-2.5 py-1 text-xs font-medium text-[#5C2E0B] border border-[#EAE6DF] cursor-default"
-                  >
-                    <span>📄</span>
-                    <span>{c.document}</span>
-                    <span className="absolute top-full left-0 mt-2 z-20 max-h-48 w-80 overflow-y-auto rounded-lg bg-white p-3 text-xs text-[#252320] shadow-lg border border-[#EAE6DF] opacity-0 translate-y-1 pointer-events-none transition-all duration-200 ease-out delay-100 group-hover/cite:opacity-100 group-hover/cite:translate-y-0 group-hover/cite:pointer-events-auto">
-                      <span className="font-semibold text-[#252320] tracking-tight">{c.document}</span>
-                      <p className="mt-1 text-[#6E6A63] tracking-wide leading-relaxed">{c.snippet}</p>
-                    </span>
-                  </span>
+                  <CitationPill key={i} c={c} />
                 ))}
               </div>
             )}
@@ -285,5 +275,55 @@ function ChatBubble({ m, onCopy, copied }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function CitationPill({ c }) {
+  const [visible, setVisible] = useState(false);
+  const hideTimer = useRef(null);
+
+  const clearTimers = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
+
+  const show = () => {
+    clearTimers();
+    hideTimer.current = setTimeout(() => setVisible(true), 250);
+  };
+
+  const hide = () => {
+    clearTimers();
+    hideTimer.current = setTimeout(() => setVisible(false), 400);
+  };
+
+  useEffect(() => {
+    return () => clearTimers();
+  }, []);
+
+  return (
+    <span
+      className="group/cite relative inline-flex items-center gap-1.5 rounded-full bg-[#F7F4EF] px-2.5 py-1 text-xs font-medium text-[#5C2E0B] border border-[#EAE6DF] cursor-default"
+      onMouseEnter={show}
+      onMouseLeave={hide}
+    >
+      <span>📄</span>
+      <span>{c.document}</span>
+      <span
+        className="absolute top-full left-0 mt-2 z-20 max-h-48 w-80 overflow-y-auto rounded-lg bg-white p-3 text-xs text-[#252320] shadow-lg border border-[#EAE6DF] transition-all duration-200 ease-out"
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(4px)',
+          pointerEvents: visible ? 'auto' : 'none',
+        }}
+      >
+        <span className="font-semibold text-[#252320] tracking-tight">{c.document}</span>
+        <p className="mt-1 text-[#6E6A63] tracking-wide leading-relaxed">{c.snippet}</p>
+      </span>
+    </span>
   );
 }
