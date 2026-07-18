@@ -22,22 +22,22 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-full bg-slate-50 text-slate-800">
-      {/* Header with logo */}
+    <div className="min-h-full bg-[#F7F4EF] text-[#252320] font-['Inter']">
+      {/* Header */}
       <header className="bg-[#442e24]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <img
               src="/minetech-logo-CAn3P09c.webp"
               alt="MineTech"
-              className="h-9 w-auto brightness-0 invert"
+              className="h-8 w-auto brightness-0 invert"
             />
-            <span className="text-sm font-medium text-[#e6e5aa] hidden sm:inline">
+            <span className="text-sm font-medium text-[#e6e5aa] hidden sm:inline tracking-wide">
               | Operations Command
             </span>
           </div>
 
-          {/* Desktop tabs - hidden on mobile */}
+          {/* Desktop tabs */}
           <nav className="hidden md:flex items-center gap-1">
             {TABS.map((t) => (
               <button
@@ -56,17 +56,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* Mobile tabs - shown only on small screens beneath header */}
-      <nav className="md:hidden bg-white border-b border-slate-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-center gap-1 px-4 py-2">
+      {/* Mobile tabs */}
+      <nav className="md:hidden bg-white border-b border-[#EAE6DF]">
+        <div className="mx-auto flex max-w-7xl items-center justify-center gap-1 px-4 py-2">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${
                 tab === t.id
-                  ? 'bg-slate-100 text-slate-900'
-                  : 'text-slate-600 hover:bg-slate-50'
+                  ? 'bg-[#F7F4EF] text-[#252320]'
+                  : 'text-[#6E6A63] hover:bg-[#F7F4EF]'
               }`}
             >
               {t.label}
@@ -75,37 +75,12 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      {/* Main Layout */}
+      <main className="mx-auto max-w-7xl px-6 py-8">
         <ErrorBoundary>
           {tab === 'triage' ? <TriageDashboard /> : <KnowledgeAssistant />}
         </ErrorBoundary>
       </main>
     </div>
-  );
-}
-
-function HealthPill({ health, loading }) {
-  if (loading) {
-    return (
-      <span className="ml-3 hidden md:inline-flex rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-[#e6e5aa]/50">
-        connecting...
-      </span>
-    );
-  }
-  if (!health) {
-    return (
-      <span className="ml-3 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-200">
-        backend offline
-      </span>
-    );
-  }
-  const mode = health.ai?.mode;
-  const docs = health.knowledge?.documents ?? 0;
-  const chunks = health.knowledge?.chunks ?? 0;
-
-  return (
-    <span className="ml-3 hidden md:inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-[#e6e5aa]">
-      {mode === 'hf' ? 'LLM: self-hosted' : mode === 'cloud' ? 'LLM: cloud' : 'LLM: offline mock'} · {docs} docs · {chunks} chunks
-    </span>
   );
 }

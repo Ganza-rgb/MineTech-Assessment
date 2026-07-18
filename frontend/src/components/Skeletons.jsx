@@ -1,6 +1,6 @@
 export function Skeleton({ className = '' }) {
   return (
-    <div className={`animate-pulse rounded bg-slate-200 ${className}`} />
+    <div className={`animate-pulse rounded bg-[#EAE6DF] ${className}`} />
   );
 }
 
@@ -22,7 +22,7 @@ export function ChatSkeleton() {
 
 export function TicketSkeleton() {
   return (
-    <tr className="border-t border-slate-100">
+    <tr className="border-t border-[#EAE6DF]">
       <td className="py-3 pr-2"><Skeleton className="h-4 w-8" /></td>
       <td className="py-3 pr-2"><Skeleton className="h-5 w-16 rounded-full" /></td>
       <td className="py-3 pr-2"><Skeleton className="h-5 w-12 rounded-full" /></td>

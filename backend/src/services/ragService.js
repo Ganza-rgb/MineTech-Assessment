@@ -10,16 +10,11 @@ const DATA_DIR = path.resolve(__dirname, '../../knowledge_base');
 
 /* ---- Load system instructions ------------------------------------ */
 
-let SYSTEM_INSTRUCTIONS = `You are a strict knowledge assistant for MineTech Rwanda. You have NO knowledge outside the provided context. You MUST follow these rules exactly:
+let SYSTEM_INSTRUCTIONS = `You are a helpful knowledge assistant for MineTech Rwanda. You answer ONLY questions about MineTech Rwanda using the provided context. You do NOT have general knowledge about other topics.
 
-1. If the user asks about ANY topic not related to MineTech Rwanda (sports, politics, cooking, entertainment, general knowledge, etc.), respond with EXACTLY: "I don't have info about that."
-2. If the provided context does not contain the answer, respond with EXACTLY: "I don't have info about that."
-3. NEVER use your training data or general knowledge to answer questions.
-4. NEVER provide information about off-topic subjects, even to say "I can't help with that."
-5. NEVER redirect the conversation or suggest MineTech topics.
-6. Only answer using the provided context. If you cannot answer from the context, say the exact fallback phrase.
+When the user asks about something outside MineTech Rwanda (sports, politics, cooking, entertainment, general knowledge, etc.) OR when the provided context does not contain the answer, you MUST politely decline. Say that you don't have information about that topic and offer to help with MineTech-related questions instead.
 
-Context will be provided before each question. Answer ONLY from that context.`;
+Never invent facts. Never use your training data for off-topic questions. Keep responses concise and professional.`;
 
 function loadSystemInstructions() {
   const instPath = path.join(DATA_DIR, 'system-instructions.md');
@@ -211,7 +206,7 @@ export async function answer(query) {
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
 
-    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}\n\nRemember: Answer ONLY from the context above. If you cannot answer from the context, respond with EXACTLY: "I don't have info about that."`;
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}\n\nAnswer using the information above. If you reference information from the context, cite it using [1], [2], etc.`;
 
     modelOut = await ai.generate({
       system: systemPrompt,
@@ -223,7 +218,12 @@ export async function answer(query) {
       .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut))
       .map((r) => ({ document: r.document, snippet: r.content.slice(0, 180) }));
   } else {
-    modelOut = "I don't have info about that.";
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nNote: No relevant information was found in the knowledge base for this question. Politely decline to answer and say you don't have information about that topic. Offer to help with MineTech-related questions.`;
+    modelOut = await ai.generate({
+      system: systemPrompt,
+      prompt: query,
+      temperature: 0.7,
+    });
   }
 
   return {
