@@ -3,16 +3,10 @@ import { api } from '../api.js';
 import { ChatSkeleton } from './Skeletons.jsx';
 
 const SUGGESTIONS = [
-  'What is MineTech Rwanda and who founded it?',
-  'What are the core AI solutions MineTech provides?',
-  'Tell me about the Minetech OS product',
-  'How does MineTech Trace work for mineral due diligence?',
-  'What sensors does MineTech use for hazard prediction?',
-  'What is the RSSB clearance requirement for emergency shifts?',
-  'What should I do if ERR-902 ventilation drop is triggered?',
-  'What equipment does MineTech deploy in underground mines?',
-  'How does MineTech help with RMB compliance reporting?',
-  'What is the timbuktoo MineTech Accelerator Programme?',
+  'What is MineTech Rwanda?',
+  'What sensors are used for hazard prediction?',
+  'What is Minetech Trace?',
+  'What should I do if ERR-902 is triggered?',
 ];
 
 export default function KnowledgeAssistant() {
