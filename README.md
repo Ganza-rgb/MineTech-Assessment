@@ -76,7 +76,7 @@ LLM_MAX_TOKENS=256
 RAG_CHUNK_SIZE=600
 RAG_CHUNK_OVERLAP=100
 RAG_TOP_K=4
-RAG_SIM_THRESHOLD=0.55
+RAG_SIM_THRESHOLD=0.2
 ```
 
 ---
@@ -139,6 +139,8 @@ Open the frontend URL (default http://localhost:5173).
 6. Add your own documents:
    - Place `.md` files in `backend/knowledge_base/`
    - Click **Re-ingest KB** in the UI, or run `npm run ingest` in backend
+
+---
 
 ---
 
@@ -214,7 +216,7 @@ Llama 3.2 3B + Context → Grounded Answer with Citations → Frontend Display
 ## 8. Senior-Level RAG Features Implemented
 
 ### Hallucination Prevention
-- **Relevance Gate**: similarity threshold (0.55) filters out low-quality matches
+- **Relevance Gate**: similarity threshold (0.2) filters out low-quality matches
 - **Closed-Domain Prompt**: Model restricted to ONLY use provided context
 - **"Don't Know" Fallback**: Explicit response when no relevant context found
 - **Short-Circuit Logic**: Skips LLM execution entirely when no chunks pass threshold, reducing latency and hallucination risk
@@ -243,7 +245,7 @@ See [DECISION_MEMO.md](./DECISION_MEMO.md) for detailed explanation of:
 - Model choice (Llama 3.2 3B via Ollama)
 - Embedding model (nomic-embed-text via Ollama)
 - Triage schema design (MineTech Rwanda operational fields)
-- Retrieval strategy (cosine similarity with 0.55 threshold + short-circuit)
+- Retrieval strategy (cosine similarity with threshold filtering)
 - Hallucination mitigation (strict prompting, relevance gating)
 - Latency vs. hardware trade-offs (optimized for free-tier local execution)
 

@@ -59,7 +59,7 @@
 - Cosine similarity computed in Node.js for small knowledge bases
 - No separate vector database process required
 - Simplifies deployment (single MySQL instance for tickets + vectors)
-- Alternative considered: LanceDB (file-based, but adds another dependency); ChromaDB (requires Python)
+- Alternative considered: ChromaDB (requires Python)
 
 ## 6. Retrieval Strategy
 
@@ -70,7 +70,7 @@
 - Storage: MySQL JSON column
 - Ranking: 
   - Primary: Cosine similarity (semantic relevance)
-  - Threshold: 0.55 cosine similarity (determined empirically for good precision/recall)
+  - Threshold: 0.2 cosine similarity (determined empirically for good precision/recall)
   - Top-K: 4 chunks for context window optimization
 - No BM25 hybrid (kept simple for assessment scope)
 
@@ -132,11 +132,16 @@
 
 - **Triage schema:** Defined with MineTech Rwanda operational categories: `Occupational Safety`, `Fleet Equipment`, `Regulatory Compliance`, `Geology & Lab`. Priorities use industrial severity: `Low`, `Medium`, `High`, `Critical`. `extracted_fields` captures `site_location`, `equipment_id`, `rssb_clearance_required` (Rwanda Social Security Board compliance boolean), and `sensor_error_codes` (telemetry array). Justification: A generic support ticket schema fails in deep tech. MineTech operates on-site infrastructure used directly by field engineers. Including indicators like `rssb_clearance_required` and specific industrial asset codes (`equipment_id`) demonstrates a system designed to tie together siloed departments into a single operating record.
 
-- **"Not in the knowledge base":** The prompt leaves this under-specified. I decided that if a vector similarity calculation returns a score below 0.55 using nomic-embed-text, it implies a complete lack of context. The system is programmed to short-circuit the request immediately, skipping the llama3.2 execution step to return a hardcoded response. This eliminates hallucinations, reduces latency, and saves local hardware resources.
+- **"Not in the knowledge base":** The prompt leaves this under-specified. I decided that if a vector similarity calculation returns a score below 0.2 using nomic-embed-text, it implies a complete lack of relevant context. The system returns "I don't have info about that." without invoking the LLM, which eliminates hallucinations, reduces latency, and saves local hardware resources.
 
-- **Knowledge base:** Seeded with:
-  - `backend/knowledge_base/safety_telemetry.md` — site sensor error codes (ERR-902, ERR-104), ventilation protocols, RSSB clearance automation
-  - `backend/knowledge_base/fleet_registry.md` — active asset roster (EXV-990, EXV-402), maintenance routing rules
+- **Knowledge base:** Comprehensive MineTech Rwanda knowledge base with 8 documents covering:
+  - `company_overview.md` — mission, founders (Kelvin Rwihimba), market impact, 150+ cooperatives waitlist
+  - `core_solutions.md` — Real-Time Hazard & Safety Prediction, Grade Control Intelligence, Automated Compliance & Reporting, IoT hardware integration
+  - `products.md` — Minetech OS, Minetech Corp, Minetech Trace, Minetech Upstream, Minetech Telco
+  - `market_impact.md` — problem statement (80% paper-based), growth trajectory, UNDP timbuktoo programme
+  - `safety_protocols.md` — underground safety, PPE, equipment safety, environmental hazards, incident reporting
+  - `regulatory_compliance.md` — RMB licensing, RSSB worker clearance, environmental compliance, OECD/ITSCI standards
+  - `operations_manual.md` — shift structure, equipment assignment, site zones, grade control workflow, emergency response
   - Designed for incremental expansion via UI or CLI
 
 - **Database schema:**
