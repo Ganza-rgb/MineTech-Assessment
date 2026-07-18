@@ -375,6 +375,11 @@ export async function answer(query) {
       maxTokens: 256
     });
 
+    // Remove any citation patterns like [1], [2], etc.
+    modelOut = modelOut.replace(/\\s*\\[\\d+\\]/g, '');
+
+
+
     console.log('=== RAG MODEL OUTPUT ===');
     console.log(modelOut);
 
