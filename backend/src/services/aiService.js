@@ -22,17 +22,19 @@ class OllamaAI {
   }
 
   async generate({ system, prompt, temperature, maxTokens }) {
-    const data = await this.request('/api/generate', {
+    const data = await this.request('/api/chat', {
       model: this.model,
-      prompt,
-      system: system || '',
+      messages: [
+        { role: 'system', content: system || '' },
+        { role: 'user', content: prompt },
+      ],
       stream: false,
       options: {
         temperature: Math.max(0.1, temperature ?? config.llm.temperature),
         num_predict: maxTokens ?? config.llm.maxTokens,
       },
     });
-    return data.response || '';
+    return data.message?.content || '';
   }
 
   async embed(text) {

@@ -106,8 +106,15 @@ function cosine(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return 0;
   if (a.length !== b.length) return 0;
   let dot = 0;
-  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
-  return dot;
+  let magA = 0;
+  let magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(magA) * Math.sqrt(magB);
+  return denom === 0 ? 0 : dot / denom;
 }
 
 function tokenize(t) {
@@ -120,14 +127,25 @@ export async function retrieve(query, topK = config.rag.topK) {
      FROM chunks c JOIN documents d ON d.id = c.document_id
      LIMIT 100`
   );
-  if (rows.length === 0) return { results: [], relevant: [], queryEmbedding: null };
+  if (rows.length === 0) {
+    console.warn('[rag] No chunks found in database — run npm run ingest');
+    return { results: [], relevant: [], queryEmbedding: null };
+  }
 
   const ai = await getAI();
   const queryEmbedding = await ai.embed(query);
   let scored = [];
 
   if (queryEmbedding) {
-    scored = rows.map((r) => {
+    const withVectors = rows.filter((r) => {
+      const emb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding;
+      return Array.isArray(emb) && emb.length > 0;
+    });
+    if (withVectors.length === 0) {
+      console.warn('[rag] All chunk embeddings are empty — run npm run ingest');
+    }
+
+    scored = withVectors.map((r) => {
       const emb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding;
       return {
         id: r.id,
@@ -138,67 +156,44 @@ export async function retrieve(query, topK = config.rag.topK) {
         cosine: cosine(queryEmbedding, emb),
       };
     });
-  } else {
+  }
+
+  if (scored.length === 0) {
     const terms = tokenize(query);
-    scored = rows.map((r) => {
-      const tokens = tokenize(r.content);
-      const matches = terms.filter((t) => tokens.includes(t)).length;
-      return {
-        id: r.id,
-        document_id: r.document_id,
-        document: r.title,
-        chunk_index: r.chunk_index,
-        content: r.content,
-        cosine: terms.length ? matches / terms.length : 0,
-      };
-    });
+    scored = rows
+      .map((r) => {
+        const tokens = tokenize(r.content);
+        const matches = terms.filter((t) => tokens.includes(t)).length;
+        return {
+          id: r.id,
+          document_id: r.document_id,
+          document: r.title,
+          chunk_index: r.chunk_index,
+          content: r.content,
+          cosine: terms.length ? matches / terms.length : 0,
+        };
+      })
+      .filter((s) => s.cosine > 0);
   }
 
   scored.sort((a, b) => b.cosine - a.cosine);
   const relevant = scored.filter((s) => s.cosine >= config.rag.similarityThreshold);
 
+  if (scored.length > 0) {
+    console.log('[rag] Top score:', scored[0].cosine.toFixed(4), 'relevant:', relevant.length, 'threshold:', config.rag.similarityThreshold);
+  }
+
   return {
     results: scored.slice(0, topK).map((s, i) => ({ ...s, rank: i + 1 })),
-    relevant: scored.filter((s) => s.cosine >= config.rag.similarityThreshold).slice(0, topK),
+    relevant: relevant.slice(0, topK),
     queryEmbedding: queryEmbedding || null,
   };
 }
 
-/* ---- answer (fast cloud path + grounded local fallback) --------- */
+/* ---- answer ------------------------------------------------------- */
 
 export async function answer(query) {
   const ai = await getAI();
-  const mode = getMode();
-
-  if (mode === 'cloud') {
-    const { relevant } = await retrieve(query);
-    let systemPrompt = SYSTEM_INSTRUCTIONS;
-
-    if (relevant.length > 0) {
-      const context = relevant
-        .map((r, i) => `[${i + 1}] ${r.content}`)
-        .join('\n\n');
-      systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}`;
-      const modelOut = await ai.generate({
-        system: systemPrompt,
-        prompt: query,
-        temperature: 0.7,
-      });
-      const citations = relevant
-        .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut))
-        .map((r) => r.document);
-      return {
-        answer: modelOut.trim(),
-        citations,
-      };
-    }
-
-    return {
-      answer: "I don't have info about that.",
-      citations: [],
-    };
-  }
-
   const { relevant } = await retrieve(query);
 
   let systemPrompt = SYSTEM_INSTRUCTIONS;
@@ -210,7 +205,7 @@ export async function answer(query) {
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
 
-    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}`;
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}\n\nAnswer using the information above. If you reference information from the context, cite it using [1], [2], etc.`;
 
     modelOut = await ai.generate({
       system: systemPrompt,
