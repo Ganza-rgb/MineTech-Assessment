@@ -292,7 +292,11 @@ export async function answer(query) {
     console.log('=== RAG MODEL OUTPUT ===');
     console.log(modelOut);
 
-    // Validate and extract citations
+    // Remove any citation patterns like [1], [2], etc. as a safety net
+    // (though we expect proper citations if model followed instructions)
+    const cleanedModelOut = modelOut.replace(/\s*\[\d+\]\s*/g, ' ').trim();
+
+    // Validate and extract citations from original output (before cleaning)
     const usedCitations = [];
     relevant.forEach((r, i) => {
       // Check if model referenced this source
@@ -309,7 +313,8 @@ export async function answer(query) {
 
     citations = usedCitations;
     grounded = citations.length > 0;
-    confidence = relevant[0] ? Number(relevant[0].cosine.toFixed(3)) : 0;
+    // Confidence based on citation presence, not just first result score
+    confidence = grounded ? Number((relevant[0]?.cosine || 0).toFixed(3)) : 0;
 
     // Additional check: if no citations found but we have context,
     // try to find citations by looking for document references
@@ -346,20 +351,7 @@ export async function answer(query) {
 
     // Fallback: if we have relevant context and model didn't say "don't know",
     // consider it grounded (model is using context even without explicit citations)
-    if (!grounded && relevant.length > 0) {
-      const dontKnowPhrases = ["don't have enough", "don't have sufficient", "not in my knowledge", "i don't know", "unable to find"];
-      const isDontKnow = dontKnowPhrases.some(p => modelOut.toLowerCase().includes(p));
-      if (!isDontKnow && modelOut.length > 20) {
-        grounded = true;
-        // Use top relevant as citation
-        usedCitations.push({
-          index: 1,
-          document: relevant[0].document,
-          chunk_id: relevant[0].id,
-          snippet: relevant[0].content.slice(0, 200)
-        });
-      }
-    }
+    // Disabled fallback to prevent hallucinations - only trust explicit citations
   } else {
     // No relevant context - must say so
     const systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\n${NO_CONTEXT_HALLUCINATION_GUARD}`;
@@ -375,22 +367,25 @@ export async function answer(query) {
       maxTokens: 256
     });
 
-    // Remove any citation patterns like [1], [2], etc.
-    modelOut = modelOut.replace(/\s*\[\d+\]/g, '');
+    // Remove any citation patterns like [1], [2], etc. (with surrounding whitespace)
+    modelOut = modelOut.replace(/\s*\[\d+\]\s*/g, ' ').trim();
 
 
 
     console.log('=== RAG MODEL OUTPUT ===');
     console.log(modelOut);
 
-    // Check if model followed the "don't know" rule
-    const dontKnowPhrase = "don't have enough information";
-    const dontKnowPhrase2 = "don't have sufficient information";
-    const dontKnowPhrase3 = "not in my knowledge base";
+    // Check if model followed the "don't know" rule from NO_CONTEXT_HALLUCINATION_GUARD
+    const expectedResponse = "i don't have enough information in my knowledge base to answer that accurately. please contact support@minetech.com for assistance.";
+    const responseLower = modelOut.toLowerCase().trim();
 
-    if (modelOut.toLowerCase().includes(dontKnowPhrase) ||
-        modelOut.toLowerCase().includes(dontKnowPhrase2) ||
-        modelOut.toLowerCase().includes(dontKnowPhrase3)) {
+    // Check for exact match or close variations
+    if (responseLower.includes(expectedResponse) ||
+        responseLower.includes("don't have enough information") ||
+        responseLower.includes("don't have sufficient information") ||
+        responseLower.includes("not in my knowledge base") ||
+        responseLower.includes("i don't know") ||
+        responseLower.includes("unable to find")) {
       grounded = true; // Model correctly said it doesn't know
     }
 

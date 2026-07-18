@@ -38,7 +38,7 @@ export const config = {
     chunkSize: Number(process.env.RAG_CHUNK_SIZE) || 600,
     chunkOverlap: Number(process.env.RAG_CHUNK_OVERLAP) || 100,
     topK: Number(process.env.RAG_TOP_K) || 5,
-    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.15, // Lower for better recall
+    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.50, // Higher for better precision
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
     knowledgeGlob: 'data/*.txt',
   },
