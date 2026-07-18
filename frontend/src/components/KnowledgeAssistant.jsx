@@ -52,7 +52,7 @@ export default function KnowledgeAssistant() {
       const startTime = Date.now();
       const res = await api.ask(question);
       const latency = Date.now() - startTime;
-      setMessages((m) => [...m, { role: 'assistant', ...res, latency, query: question }]);
+      setMessages((m) => [...m, { role: 'assistant', ...res, latency }]);
     } catch (e) {
       setMessages((m) => [...m, { role: 'assistant', answer: e.message, error: true }]);
     } finally {
@@ -91,7 +91,7 @@ export default function KnowledgeAssistant() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-24 scroll-smooth">
         {initialLoading ? (
           <div className="flex h-full items-center justify-center">
             <ChatSkeleton />
@@ -193,18 +193,6 @@ export default function KnowledgeAssistant() {
   );
 }
 
-function highlightText(text, query) {
-  if (!query || !text) return text;
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return text;
-  const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
-  const parts = text.split(regex);
-  return parts.map((part, i) =>
-    regex.test(part) ? <mark key={i} className="rounded bg-yellow-200 px-0.5">{part}</mark> : part
-  );
-}
-
 function TypingDots() {
   return (
     <span className="flex gap-1">
@@ -263,13 +251,13 @@ function ChatBubble({ m, onCopy, copied }) {
                 {m.citations.map((c, i) => (
                   <span
                     key={i}
-                    className="group relative inline-flex items-center gap-1.5 rounded-full bg-[#F7F4EF] px-2.5 py-1 text-xs font-medium text-[#5C2E0B] border border-[#EAE6DF] cursor-default"
+                    className="group/cite relative inline-flex items-center gap-1.5 rounded-full bg-[#F7F4EF] px-2.5 py-1 text-xs font-medium text-[#5C2E0B] border border-[#EAE6DF] cursor-default"
                   >
                     <span>📄</span>
                     <span>{c.document}</span>
-                    <span className="absolute top-full left-0 mt-2 z-20 hidden max-h-48 w-80 overflow-y-auto rounded-lg bg-white p-3 text-xs text-[#252320] shadow-lg border border-[#EAE6DF] group-hover:block">
+                    <span className="absolute top-full left-0 mt-2 z-20 max-h-48 w-80 overflow-y-auto rounded-lg bg-white p-3 text-xs text-[#252320] shadow-lg border border-[#EAE6DF] opacity-0 translate-y-1 pointer-events-none transition-all duration-200 ease-out delay-100 group-hover/cite:opacity-100 group-hover/cite:translate-y-0 group-hover/cite:pointer-events-auto">
                       <span className="font-semibold text-[#252320] tracking-tight">{c.document}</span>
-                      <p className="mt-1 text-[#6E6A63] tracking-wide leading-relaxed">{highlightText(c.snippet, m.query)}</p>
+                      <p className="mt-1 text-[#6E6A63] tracking-wide leading-relaxed">{c.snippet}</p>
                     </span>
                   </span>
                 ))}
@@ -278,7 +266,7 @@ function ChatBubble({ m, onCopy, copied }) {
           </>
         )}
 
-        <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="mt-2 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={onCopy}
             className="rounded p-1 text-[#6E6A63] hover:text-[#252320]"

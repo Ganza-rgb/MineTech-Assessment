@@ -124,6 +124,8 @@ function cleanSnippet(text, maxLen = 320) {
   if (s.length > maxLen) s = s.slice(0, maxLen).trimEnd() + '...';
   return s;
 }
+
+function tokenize(t) {
   return (t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
 }
 
@@ -219,7 +221,7 @@ export async function answer(query) {
       temperature: 0.7,
     });
 
-    citations = relevant.slice(0, 1).map((r) => ({ document: r.document, snippet: r.content }));
+    citations = relevant.slice(0, 1).map((r) => ({ document: r.document, snippet: cleanSnippet(r.content) }));
   } else {
     systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nNote: No relevant information was found in the knowledge base for this question. Politely decline to answer and say you don't have information about that topic. Offer to help with MineTech-related questions.`;
     modelOut = await ai.generate({
