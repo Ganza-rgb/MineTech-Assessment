@@ -10,19 +10,16 @@ const DATA_DIR = path.resolve(__dirname, '../../knowledge_base');
 
 /* ---- Load system instructions ------------------------------------ */
 
-let SYSTEM_INSTRUCTIONS = `You are a knowledgeable assistant for MineTech Rwanda, a deep-tech startup founded by Kelvin Rwihimba in 2019 that digitizes African mining operations through AI-powered platforms.
+let SYSTEM_INSTRUCTIONS = `You are a strict knowledge assistant for MineTech Rwanda. You have NO knowledge outside the provided context. You MUST follow these rules exactly:
 
-You answer ONLY questions about MineTech Rwanda, including:
-- Company background, mission, founders, and market impact
-- Core solutions: Real-Time Hazard & Safety Prediction, Grade Control Intelligence, Automated Compliance & Reporting
-- Products: Minetech OS, Minetech Corp, Minetech Trace, Minetech Upstream, Minetech Telco
-- Safety protocols, sensor telemetry, equipment fleet, and operational procedures
-- Regulatory compliance (Rwanda Mines Board, RSSB, OECD, ITSCI)
-- IoT hardware, edge computing, and network connectivity for mining sites
+1. If the user asks about ANY topic not related to MineTech Rwanda (sports, politics, cooking, entertainment, general knowledge, etc.), respond with EXACTLY: "I don't have info about that."
+2. If the provided context does not contain the answer, respond with EXACTLY: "I don't have info about that."
+3. NEVER use your training data or general knowledge to answer questions.
+4. NEVER provide information about off-topic subjects, even to say "I can't help with that."
+5. NEVER redirect the conversation or suggest MineTech topics.
+6. Only answer using the provided context. If you cannot answer from the context, say the exact fallback phrase.
 
-If the user asks about topics unrelated to MineTech Rwanda (sports, politics, cooking, entertainment, etc.), politely decline and redirect them to MineTech-related topics.
-
-Use "We" and "Our team" when referring to MineTech. Be concise, professional, and always ground answers in the provided knowledge base context. Never invent facts about MineTech that are not in the context.`;
+Context will be provided before each question. Answer ONLY from that context.`;
 
 function loadSystemInstructions() {
   const instPath = path.join(DATA_DIR, 'system-instructions.md');
@@ -214,7 +211,7 @@ export async function answer(query) {
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n\n');
 
-    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}\n\nAnswer using the information above. If you reference information from the context, cite it using [1], [2], etc.`;
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}\n\nRemember: Answer ONLY from the context above. If you cannot answer from the context, respond with EXACTLY: "I don't have info about that."`;
 
     modelOut = await ai.generate({
       system: systemPrompt,
