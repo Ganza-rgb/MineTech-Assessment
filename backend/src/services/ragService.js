@@ -118,7 +118,12 @@ function cosine(a, b) {
   return denom === 0 ? 0 : dot / denom;
 }
 
-function tokenize(t) {
+function cleanSnippet(text, maxLen = 320) {
+  if (!text) return '';
+  let s = text.replace(/[#*_`>-]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.length > maxLen) s = s.slice(0, maxLen).trimEnd() + '...';
+  return s;
+}
   return (t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
 }
 
@@ -214,9 +219,7 @@ export async function answer(query) {
       temperature: 0.7,
     });
 
-    citations = relevant
-      .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut))
-      .map((r) => ({ document: r.document, snippet: r.content.slice(0, 180) }));
+    citations = relevant.slice(0, 1).map((r) => ({ document: r.document, snippet: r.content }));
   } else {
     systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nNote: No relevant information was found in the knowledge base for this question. Politely decline to answer and say you don't have information about that topic. Offer to help with MineTech-related questions.`;
     modelOut = await ai.generate({

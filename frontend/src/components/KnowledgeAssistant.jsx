@@ -52,7 +52,7 @@ export default function KnowledgeAssistant() {
       const startTime = Date.now();
       const res = await api.ask(question);
       const latency = Date.now() - startTime;
-      setMessages((m) => [...m, { role: 'assistant', ...res, latency }]);
+      setMessages((m) => [...m, { role: 'assistant', ...res, latency, query: question }]);
     } catch (e) {
       setMessages((m) => [...m, { role: 'assistant', answer: e.message, error: true }]);
     } finally {
@@ -193,6 +193,18 @@ export default function KnowledgeAssistant() {
   );
 }
 
+function highlightText(text, query) {
+  if (!query || !text) return text;
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return text;
+  const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part) ? <mark key={i} className="rounded bg-yellow-200 px-0.5">{part}</mark> : part
+  );
+}
+
 function TypingDots() {
   return (
     <span className="flex gap-1">
@@ -255,9 +267,9 @@ function ChatBubble({ m, onCopy, copied }) {
                   >
                     <span>📄</span>
                     <span>{c.document}</span>
-                    <span className="absolute top-full left-0 mt-2 z-20 hidden w-64 rounded-lg bg-white p-3 text-xs text-[#252320] shadow-lg border border-[#EAE6DF] group-hover:block">
+                    <span className="absolute top-full left-0 mt-2 z-20 hidden max-h-48 w-80 overflow-y-auto rounded-lg bg-white p-3 text-xs text-[#252320] shadow-lg border border-[#EAE6DF] group-hover:block">
                       <span className="font-semibold text-[#252320] tracking-tight">{c.document}</span>
-                      <p className="mt-1 line-clamp-3 text-[#6E6A63] tracking-wide leading-relaxed">{c.snippet}</p>
+                      <p className="mt-1 text-[#6E6A63] tracking-wide leading-relaxed">{highlightText(c.snippet, m.query)}</p>
                     </span>
                   </span>
                 ))}
