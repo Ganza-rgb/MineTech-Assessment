@@ -103,9 +103,10 @@ export async function ingestAll() {
 /* ---- retrieval (optimized) -------------------------------------- */
 
 function cosine(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return 0;
+  if (a.length !== b.length) return 0;
   let dot = 0;
-  const n = Math.min(a.length, b.length);
-  for (let i = 0; i < n; i++) dot += a[i] * b[i];
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
   return dot;
 }
 
@@ -170,12 +171,50 @@ export async function answer(query) {
   const mode = getMode();
 
   if (mode === 'cloud') {
+    const { relevant } = await retrieve(query);
+    let systemPrompt = SYSTEM_INSTRUCTIONS;
+    let citations = [];
+    let grounded = false;
+    let confidence = 0;
+
+    if (relevant.length > 0) {
+      const context = relevant
+        .map((r, i) => `[${i + 1}] ${r.content}`)
+        .join('\n\n');
+      systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\nRelevant information:\n${context}`;
+      const modelOut = await ai.generate({
+        system: systemPrompt,
+        prompt: query,
+        temperature: 0.7,
+      });
+      const usedCitations = [];
+      relevant.forEach((r, i) => {
+        if (new RegExp(`\\[${i + 1}\\]`).test(modelOut)) {
+          usedCitations.push({
+            index: i + 1,
+            document: r.document,
+            chunk_id: r.id,
+            snippet: r.content.slice(0, 150),
+          });
+        }
+      });
+      citations = usedCitations;
+      grounded = citations.length > 0;
+      confidence = Number(relevant[0].cosine.toFixed(3));
+      return {
+        content: modelOut.trim(),
+        citations,
+        grounded,
+        confidence,
+        provider: mode,
+      };
+    }
+
     const modelOut = await ai.generate({
-      system: SYSTEM_INSTRUCTIONS,
+      system: systemPrompt,
       prompt: query,
       temperature: 0.7,
     });
-
     return {
       content: modelOut.trim(),
       citations: [],

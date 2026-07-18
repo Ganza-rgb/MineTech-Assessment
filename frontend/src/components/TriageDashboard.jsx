@@ -14,7 +14,7 @@ const CATEGORY_COLORS = {
   billing: 'bg-violet-100 text-violet-700',
   technical: 'bg-rose-100 text-rose-700',
   account: 'bg-sky-100 text-sky-700',
-  feature_request: 'bg-emerald-100 text-emerald-100',
+  feature_request: 'bg-emerald-100 text-emerald-700',
   feedback: 'bg-amber-100 text-amber-700',
   other: 'bg-slate-100 text-slate-700',
 };
@@ -235,7 +235,16 @@ function ResultCard({ result }) {
 }
 
 function TicketRow({ t, open, onToggle, onStatus }) {
-  const entities = typeof t.key_entities === 'string' ? JSON.parse(t.key_entities) : t.key_entities;
+  let entities = null;
+  if (typeof t.key_entities === 'string') {
+    try {
+      entities = JSON.parse(t.key_entities);
+    } catch {
+      entities = null;
+    }
+  } else {
+    entities = t.key_entities;
+  }
   return (
     <>
       <tr

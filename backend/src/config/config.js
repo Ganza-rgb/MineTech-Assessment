@@ -30,7 +30,7 @@ export const config = {
     hfEmbedModelId: process.env.HF_EMBED_MODEL_ID || 'Xenova/all-MiniLM-L6-v2',
     dtype: process.env.HF_DTYPE || 'q4',
     device: process.env.TRANSFORMERS_DEVICE || 'cpu',
-    temperature: Number(process.env.LLM_TEMP) ?? 0.2,
+    temperature: Number(process.env.LLM_TEMP) || 0.2,
     maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256, // Reduced for speed
   },
 

@@ -111,8 +111,6 @@ export default function KnowledgeAssistant() {
 }
 
 function ChatBubble({ m }) {
-  const [showContext, setShowContext] = useState(false);
-
   if (m.role === 'user') {
     return (
       <div className="flex justify-end">
@@ -139,7 +137,7 @@ function ChatBubble({ m }) {
                 {m.citations.map((c) => (
                   <button
                     key={c.chunk_id}
-                    onClick={() => setShowContext(!showContext)}
+                    onClick={() => setShowContext(showContext === c.index ? null : c.index)}
                     className="flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs font-medium text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-50 transition-colors"
                   >
                     <span className="font-mono font-bold">[{c.index}]</span>
@@ -153,14 +151,14 @@ function ChatBubble({ m }) {
             )}
 
             {/* Layer 3: Context Preview Dropdown */}
-            {showContext && m.citations?.length > 0 && (
+            {showContext !== null && m.citations?.length > 0 && (
               <div className="mt-3 rounded-lg bg-white border border-slate-200 overflow-hidden">
                 <div className="bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200">
                   📄 Retrieved Source Chunks
                 </div>
                 <div className="max-h-40 overflow-y-auto">
                   {m.citations.map((c, idx) => (
-                    <div key={idx} className="px-3 py-2 text-xs border-b border-slate-100 last:border-0">
+                    <div key={idx} className={`px-3 py-2 text-xs border-b border-slate-100 last:border-0 ${showContext === c.index ? '' : 'hidden'}`}>
                       <span className="font-mono font-semibold text-indigo-600">[{c.index}]</span>
                       <p className="mt-1 text-slate-600">{c.snippet}</p>
                     </div>

@@ -104,7 +104,7 @@ class MockAI {
     return "We're here to help!";
   }
   async embed(text) {
-    return new Array(256).fill(0);
+    return null;
   }
   async health() {
     return { ready: true, mode: 'mock' };
