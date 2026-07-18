@@ -173,9 +173,6 @@ export async function answer(query) {
   if (mode === 'cloud') {
     const { relevant } = await retrieve(query);
     let systemPrompt = SYSTEM_INSTRUCTIONS;
-    let citations = [];
-    let grounded = false;
-    let confidence = 0;
 
     if (relevant.length > 0) {
       const context = relevant
@@ -187,40 +184,18 @@ export async function answer(query) {
         prompt: query,
         temperature: 0.7,
       });
-      const usedCitations = [];
-      relevant.forEach((r, i) => {
-        if (new RegExp(`\\[${i + 1}\\]`).test(modelOut)) {
-          usedCitations.push({
-            index: i + 1,
-            document: r.document,
-            chunk_id: r.id,
-            snippet: r.content.slice(0, 150),
-          });
-        }
-      });
-      citations = usedCitations;
-      grounded = citations.length > 0;
-      confidence = Number(relevant[0].cosine.toFixed(3));
+      const citations = relevant
+        .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut))
+        .map((r) => r.document);
       return {
-        content: modelOut.trim(),
+        answer: modelOut.trim(),
         citations,
-        grounded,
-        confidence,
-        provider: mode,
       };
     }
 
-    const modelOut = await ai.generate({
-      system: systemPrompt,
-      prompt: query,
-      temperature: 0.7,
-    });
     return {
-      content: modelOut.trim(),
+      answer: "I don't have info about that.",
       citations: [],
-      grounded: false,
-      confidence: 0,
-      provider: mode,
     };
   }
 
@@ -229,8 +204,6 @@ export async function answer(query) {
   let systemPrompt = SYSTEM_INSTRUCTIONS;
   let modelOut;
   let citations = [];
-  let grounded = false;
-  let confidence = 0;
 
   if (relevant.length > 0) {
     const context = relevant
@@ -245,35 +218,16 @@ export async function answer(query) {
       temperature: 0.7,
     });
 
-    const usedCitations = [];
-    relevant.forEach((r, i) => {
-      if (new RegExp(`\\[${i + 1}\\]`).test(modelOut)) {
-        usedCitations.push({
-          index: i + 1,
-          document: r.document,
-          chunk_id: r.id,
-          snippet: r.content.slice(0, 150)
-        });
-      }
-    });
-    citations = usedCitations;
-    grounded = citations.length > 0;
-    confidence = Number(relevant[0].cosine.toFixed(3));
+    citations = relevant
+      .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut))
+      .map((r) => r.document);
   } else {
-    modelOut = await ai.generate({
-      system: systemPrompt,
-      prompt: query,
-      temperature: 0.7,
-    });
-    confidence = 0;
+    modelOut = "I don't have info about that.";
   }
 
   return {
-    content: modelOut.trim(),
+    answer: modelOut.trim(),
     citations,
-    grounded,
-    confidence,
-    provider: mode,
   };
 }
 

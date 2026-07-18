@@ -41,7 +41,7 @@ export default function KnowledgeAssistant() {
       const latency = Date.now() - startTime;
       setMessages((m) => [...m, { role: 'assistant', ...res, latency }]);
     } catch (e) {
-      setMessages((m) => [...m, { role: 'assistant', content: e.message, error: true }]);
+      setMessages((m) => [...m, { role: 'assistant', answer: e.message, error: true }]);
     } finally {
       setLoading(false);
     }
@@ -121,64 +121,34 @@ function ChatBubble({ m }) {
     );
   }
 
+  const isFallback = m.answer === "I don't have info about that.";
+
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-800">
+      <div
+        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+          isFallback
+            ? 'bg-slate-200 text-slate-500'
+            : 'bg-white text-slate-800 border border-slate-200'
+        }`}
+      >
         {m.error ? (
-          <span className="text-red-600">{m.content}</span>
+          <span className="text-red-600">{m.answer}</span>
         ) : (
           <>
-            {/* Layer 1: Answer Layer */}
-            <div className="whitespace-pre-wrap">{m.content}</div>
+            <div className="whitespace-pre-wrap">{m.answer}</div>
 
-            {/* Layer 2: Citation Labels Layer */}
-            {m.citations?.length > 0 && (
+            {!isFallback && m.citations?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {m.citations.map((c) => (
-                  <button
-                    key={c.chunk_id}
-                    onClick={() => setShowContext(showContext === c.index ? null : c.index)}
-                    className="flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs font-medium text-indigo-600 shadow-sm border border-indigo-100 hover:bg-indigo-50 transition-colors"
+                {m.citations.map((c, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 border border-indigo-100"
                   >
-                    <span className="font-mono font-bold">[{c.index}]</span>
-                    <span>{c.document}</span>
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                    <span>📄</span>
+                    <span>{c}</span>
+                  </span>
                 ))}
-              </div>
-            )}
-
-            {/* Layer 3: Context Preview Dropdown */}
-            {showContext !== null && m.citations?.length > 0 && (
-              <div className="mt-3 rounded-lg bg-white border border-slate-200 overflow-hidden">
-                <div className="bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200">
-                  📄 Retrieved Source Chunks
-                </div>
-                <div className="max-h-40 overflow-y-auto">
-                  {m.citations.map((c, idx) => (
-                    <div key={idx} className={`px-3 py-2 text-xs border-b border-slate-100 last:border-0 ${showContext === c.index ? '' : 'hidden'}`}>
-                      <span className="font-mono font-semibold text-indigo-600">[{c.index}]</span>
-                      <p className="mt-1 text-slate-600">{c.snippet}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Out of Scope Warning */}
-            {m.grounded === false && (
-              <div className="mt-3 rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800 border border-yellow-200">
-                <div className="flex items-start gap-2">
-                  <span className="text-yellow-600">⚠️</span>
-                  <div>
-                    <p className="font-semibold">Not in Knowledge Base</p>
-                    <p className="mt-1 text-yellow-700">
-                      This answer is not grounded in the knowledge base. The system could not find relevant information to answer your question.
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
           </>
