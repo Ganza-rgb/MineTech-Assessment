@@ -162,7 +162,7 @@ export async function ingestAll() {
   if (!fs.existsSync(DATA_DIR)) return [];
   const files = fs
     .readdirSync(DATA_DIR)
-    .filter((f) => f.toLowerCase().endsWith('.txt') || f.toLowerCase().endsWith('.md'))
+    .filter((f) => (f.toLowerCase().endsWith('.txt') || f.toLowerCase().endsWith('.md')) && f !== 'system-instructions.md')
     .map((f) => path.join(DATA_DIR, f));
   const results = [];
   for (const f of files) results.push(await ingestFile(f));
@@ -316,29 +316,8 @@ export async function answer(query) {
     // Confidence based on citation presence, not just first result score
     confidence = grounded ? Number((relevant[0]?.cosine || 0).toFixed(3)) : 0;
 
-    // Additional check: if no citations found but we have context,
-    // try to find citations by looking for document references
-    if (!grounded && relevant.length > 0) {
-      // Check if model mentions any content from the context
-      const modelLower = modelOut.toLowerCase();
-      for (const r of relevant) {
-        const contentLower = r.content.toLowerCase();
-        // If model echoes significant content, consider it grounded
-        const sharedWords = modelLower.split(/\s+/).filter(w => w.length > 4)
-          .filter(w => contentLower.includes(w));
-        if (sharedWords.length > 5) {
-          grounded = true;
-          // Generate citation from the matched chunk
-          usedCitations.push({
-            index: usedCitations.length + 1,
-            document: r.document,
-            chunk_id: r.id,
-            snippet: r.content.slice(0, 200)
-          });
-          break;
-        }
-      }
-    }
+    // REMOVED: Sections that checked for content similarity or fallback logic
+    // These could cause hallucinations - only explicit citations [1], [2], etc. determine grounding
 
     // Add timing info to citations for display
     if (usedCitations.length > 0) {
