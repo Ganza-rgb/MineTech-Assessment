@@ -80,6 +80,14 @@ CRITICAL RULES - STRICTLY FOLLOW:
 5. If you cannot find relevant information, don't guess - explicitly state you don't know
 6. Keep answers concise and directly related to the question`;
 
+const NO_CONTEXT_HALLUCINATION_GUARD = `
+CRITICAL RULES - STRICTLY FOLLOW:
+1. ONLY answer based on the provided context below
+2. If the context does NOT contain the answer, you MUST say: "I don't have enough information in my knowledge base to answer that accurately. Please contact support@minetech.com for assistance."
+3. NEVER use your internal knowledge - only use information from the provided context
+4. DO NOT include any citations or references in your answer
+5. Keep answers concise and directly related to the question`;
+
 /* ---- Chunking ---------------------------------------------------- */
 
 export function chunkText(text, size = config.rag.chunkSize, overlap = config.rag.chunkOverlap) {
@@ -354,7 +362,7 @@ export async function answer(query) {
     }
   } else {
     // No relevant context - must say so
-    const systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\n${HALLUCINATION_GUARD}`;
+    const systemPrompt = `${SYSTEM_INSTRUCTIONS}\n\n${NO_CONTEXT_HALLUCINATION_GUARD}`;
 
     console.log('=== RAG RETRIEVAL ===');
     console.log('Query:', query);
