@@ -251,19 +251,17 @@ function ChatBubble({ m, onCopy, copied }) {
                 {m.citations.map((c, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 border border-indigo-100"
+                    className="group relative inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 border border-indigo-100 cursor-default"
                   >
                     <span>📄</span>
-                    <span>{c}</span>
+                    <span>{c.document}</span>
+                    <span className="absolute top-full left-0 mt-2 z-20 hidden w-64 rounded-lg bg-white p-3 text-xs text-slate-700 shadow-lg border border-slate-200 group-hover:block">
+                      <span className="font-semibold text-slate-900">{c.document}</span>
+                      <p className="mt-1 line-clamp-3 text-slate-600">{c.snippet}</p>
+                    </span>
                   </span>
                 ))}
               </div>
-            )}
-
-            {m.latency && (
-              <p className="mt-2 text-[10px] text-slate-400">
-                Answered in {m.latency}ms
-              </p>
             )}
           </>
         )}

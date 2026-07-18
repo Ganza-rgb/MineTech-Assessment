@@ -224,7 +224,7 @@ export async function answer(query) {
 
     citations = relevant
       .filter((_, i) => new RegExp(`\\[${i + 1}\\]`).test(modelOut))
-      .map((r) => r.document);
+      .map((r) => ({ document: r.document, snippet: r.content.slice(0, 180) }));
   } else {
     modelOut = "I don't have info about that.";
   }
