@@ -74,7 +74,7 @@ loadSystemInstructions();
 const HALLUCINATION_GUARD = `
 CRITICAL RULES - STRICTLY FOLLOW:
 1. ONLY answer based on the provided context below
-2. If the context does NOT contain the answer, you MUST say: "I don't have enough information in my knowledge base to answer that accurately. Please contact support@minetech.com for assistance."
+2. If the context does NOT contain the answer, you MUST say: "I don't have enough information in my knowledge base to answer that accurately. Please contact support@minetech.com for assistance." DO NOT use your internal knowledge to answer the question.
 3. NEVER use your internal knowledge - only use information from the provided context
 4. ALWAYS cite sources using [1], [2], etc. for every factual claim
 5. If you cannot find relevant information, don't guess - explicitly state you don't know
@@ -83,7 +83,7 @@ CRITICAL RULES - STRICTLY FOLLOW:
 const NO_CONTEXT_HALLUCINATION_GUARD = `
 CRITICAL RULES - STRICTLY FOLLOW:
 1. ONLY answer based on the provided context below
-2. If the context does NOT contain the answer, you MUST say: "I don't have enough information in my knowledge base to answer that accurately. Please contact support@minetech.com for assistance."
+2. If the context does NOT contain the answer, you MUST say: "I don't have enough information in my knowledge base to answer that accurately. Please contact support@minetech.com for assistance." DO NOT use your internal knowledge to answer the question.
 3. NEVER use your internal knowledge - only use information from the provided context
 4. DO NOT include any citations or references in your answer
 5. Keep answers concise and directly related to the question`;
@@ -376,7 +376,7 @@ export async function answer(query) {
     });
 
     // Remove any citation patterns like [1], [2], etc.
-    modelOut = modelOut.replace(/\\s*\\[\\d+\\]/g, '');
+    modelOut = modelOut.replace(/\s*\[\d+\]/g, '');
 
 
 
