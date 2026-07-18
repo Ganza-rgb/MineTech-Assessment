@@ -46,7 +46,6 @@ Priority guidance:
 - high: broken/failing capability, data or financial loss.
 - medium: actionable but not time-critical (e.g. billing questions).
 - low: general feedback, thanks, minor asks.
-Avoid defaulting to 'feedback' category or 'medium' priority unless the user's message clearly indicates general feedback or a non-urgent, routine request.
 Extract key_entities only when clearly present. The suggested_reply must be professional,
 always use "We" or "Our team" (NOT "I"), reference the customer by email username if available, and never invent facts.`;
 

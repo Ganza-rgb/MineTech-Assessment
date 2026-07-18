@@ -1,99 +1,67 @@
+import { HfInference } from '@huggingface/inference';
 import { config } from '../config/config.js';
 
-class OllamaAI {
+class CloudAI {
   constructor() {
-    this.mode = 'ollama';
-    this.endpoint = config.llm.ollama.endpoint;
-    this.model = config.llm.ollama.model;
-    this.embedModel = config.llm.ollama.embedModel || 'nomic-embed-text';
+    this.mode = 'cloud';
+    this.model = config.llm.cloudModel;
+    this.client = new HfInference(config.llm.cloudApiKey, {
+      fetch: (url, opts = {}) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 60000);
+        return fetch(url, { ...opts, signal: controller.signal })
+          .finally(() => clearTimeout(timer));
+      }
+    });
   }
 
   async generate({ system, prompt, temperature, maxTokens }) {
     try {
-      const messages = [];
-      if (system) {
-        messages.push({ role: 'system', content: system });
-      }
-      messages.push({ role: 'user', content: prompt });
-
-      const response = await fetch(`${this.endpoint}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: messages,
-          stream: false,
-          options: {
-            temperature: temperature ?? config.llm.temperature,
-            num_predict: maxTokens ?? config.llm.maxTokens,
-          }
-        })
+      const response = await this.client.chatCompletion({
+        model: this.model,
+        messages: [
+          { role: 'system', content: system || '' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: Math.max(0.1, temperature ?? config.llm.temperature),
+        max_tokens: maxTokens ?? config.llm.maxTokens,
       });
 
-      if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.message?.content || '';
+      return response.choices?.[0]?.message?.content || '';
     } catch (err) {
-      console.error('[ai] Ollama error:', err.message);
+      console.error('[ai] Cloud error:', err.message);
       throw err;
     }
   }
 
   async embed(text) {
-    try {
-      const response = await fetch(`${this.endpoint}/api/embeddings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.embedModel,
-          prompt: text,
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ollama embedding API error: ${response.status}`);
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await this.client.featureExtraction({
+          model: 'sentence-transformers/all-MiniLM-L6-v2',
+          inputs: text,
+        });
+        if (!Array.isArray(response)) return null;
+        const vec = Array.isArray(response[0]) ? response[0] : response;
+        return Array.isArray(vec) ? vec : null;
+      } catch (err) {
+        if (attempt === 3) {
+          console.warn('[ai] Embed error:', err.message);
+          return null;
+        }
+        await delay(500 * attempt);
       }
-
-      const data = await response.json();
-      return data.embedding || null;
-    } catch (err) {
-      console.error('[ai] Ollama embedding error:', err.message);
-      return null;
     }
   }
 
   async health() {
-    try {
-      const response = await fetch(`${this.endpoint}/api/tags`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (!response.ok) {
-        return { ready: false, mode: this.mode, model: this.model };
-      }
-
-      const data = await response.json();
-      const modelExists = data.models.some(model => model.name === this.model);
-      return { ready: modelExists, mode: this.mode, model: this.model };
-    } catch (err) {
-      console.error('[ai] Ollama health check error:', err.message);
-      return { ready: false, mode: this.mode, model: this.model };
-    }
+    return { ready: !!config.llm.cloudApiKey, mode: this.mode, model: this.model };
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* MAIN getAI() - Ollama First with Fallback                           */
+/* MAIN getAI() - Cloud First with Fallback                            */
 /* ------------------------------------------------------------------ */
 
 let _ai = null;
@@ -101,12 +69,12 @@ let _currentMode = null;
 let _loading = false;
 
 export async function getAI() {
-  if (_ai && _currentMode === 'ollama') return _ai;
+  if (_ai && _currentMode === 'cloud') return _ai;
   if (_loading) return _ai;
   _loading = true;
-  _currentMode = 'ollama';
-  _ai = new OllamaAI();
-  console.log('[ai] Using Ollama model');
+  _currentMode = 'cloud';
+  _ai = new CloudAI();
+  console.log('[ai] Using cloud model (SDK)');
   _loading = false;
   return _ai;
 }

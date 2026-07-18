@@ -17,28 +17,28 @@ export const config = {
     connectionLimit: Number(process.env.MYSQL_POOL) || 10,
   },
 
-  // LLM Mode: 'ollama', 'mock', or 'auto' (auto switches based on network/model availability)
+  // LLM Mode: 'local', 'cloud', or 'auto' (auto switches based on network)
   llm: {
-    mode: process.env.LLM_MODE || 'ollama', // 'ollama' | 'mock' | 'auto'
-    // Ollama settings (self-hosted)
-    ollama: {
-      endpoint: process.env.OLLAMA_ENDPOINT || 'http://localhost:11434',
-      model: process.env.OLLAMA_MODEL || 'qwen2.5:0.5b',
-      embedModel: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
-    },
-    // Mock mode for testing
-    mock: {
-      // No additional config needed
-    },
-    temperature: Number(process.env.LLM_TEMP) ?? 0.1, // Low for factual consistency
-    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256,
+    mode: process.env.LLM_MODE || 'cloud', // 'local' | 'cloud' | 'auto'
+    cloudProvider: process.env.CLOUD_PROVIDER || 'hf', // 'hf' = Hugging Face Inference API
+    cloudApiUrl: process.env.CLOUD_API_URL || 'https://api-inference.huggingface.co',
+    cloudApiKey: process.env.CLOUD_API_KEY || '', // Add your HF token here
+    cloudModel: process.env.CLOUD_MODEL || 'Qwen/Qwen2.5-0.5B-Instruct',
+
+    // Local HF model settings
+    hfModelId: process.env.HF_MODEL_ID || 'onnx-community/Qwen2.5-0.5B-Instruct',
+    hfEmbedModelId: process.env.HF_EMBED_MODEL_ID || 'Xenova/all-MiniLM-L6-v2',
+    dtype: process.env.HF_DTYPE || 'q4',
+    device: process.env.TRANSFORMERS_DEVICE || 'cpu',
+    temperature: Number(process.env.LLM_TEMP) ?? 0.2,
+    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 256, // Reduced for speed
   },
 
   rag: {
     chunkSize: Number(process.env.RAG_CHUNK_SIZE) || 600,
     chunkOverlap: Number(process.env.RAG_CHUNK_OVERLAP) || 100,
-    topK: Number(process.env.RAG_TOP_K) || 5,
-    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.50, // Higher for better precision
+    topK: Number(process.env.RAG_TOP_K) || 4,
+    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.2, // Lowered for more matches
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
     knowledgeGlob: 'data/*.txt',
   },

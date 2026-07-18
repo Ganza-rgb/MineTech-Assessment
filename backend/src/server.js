@@ -55,42 +55,29 @@ app.post('/api/triage', async (req, res) => {
   try {
     const parsed = TriageRequestSchema.parse(req.body);
     const result = await triage(parsed.text, { source: parsed.source || 'api' });
-
-    // Try to save to MySQL if available
-    if (pool) {
-      try {
-        const [ins] = await pool.query(
-          `INSERT INTO tickets
-            (raw_text, category, priority, priority_reason, sentiment, language,
-             key_entities, summary, suggested_reply, confidence, status, source, meta)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`,
-          [
-            parsed.text,
-            result.category,
-            result.priority,
-            result.priority_reason,
-            result.sentiment,
-            result.language,
-            JSON.stringify(result.key_entities || {}),
-            result.summary,
-            result.suggested_reply,
-            result.confidence,
-            parsed.source || 'api',
-            JSON.stringify(result.meta || {}),
-          ]
-        );
-        const duration = Date.now() - start;
-        logger.info('triage created', { reqId: req.id, ticketId: ins.insertId, category: result.category, duration });
-        return res.json({ id: ins.insertId, ...result });
-      } catch (dbErr) {
-        logger.warn('triage save to MySQL failed, returning result only', { error: dbErr.message });
-      }
-    }
-
-    // Return result without saving to DB
+    const [ins] = await pool.query(
+      `INSERT INTO tickets
+        (raw_text, category, priority, priority_reason, sentiment, language,
+         key_entities, summary, suggested_reply, confidence, status, source, meta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`,
+      [
+        parsed.text,
+        result.category,
+        result.priority,
+        result.priority_reason,
+        result.sentiment,
+        result.language,
+        JSON.stringify(result.key_entities || {}),
+        result.summary,
+        result.suggested_reply,
+        result.confidence,
+        parsed.source || 'api',
+        JSON.stringify(result.meta || {}),
+      ]
+    );
     const duration = Date.now() - start;
-    logger.info('triage completed (no DB)', { reqId: req.id, category: result.category, duration });
-    res.json({ id: null, ...result });
+    logger.info('triage created', { reqId: req.id, ticketId: ins.insertId, category: result.category, duration });
+    res.json({ id: ins.insertId, ...result });
   } catch (err) {
     if (err.name === 'ZodError') {
       logger.warn('triage validation failed', { reqId: req.id, errors: err.errors });
@@ -250,7 +237,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 app.listen(config.port, () => logger.info('server started', { port: config.port }));
 
-// Non-blocking MySQL init (needed for triage, but RAG works without it)
 (async () => {
   for (let attempt = 1; ; attempt++) {
     try {
@@ -258,12 +244,10 @@ app.listen(config.port, () => logger.info('server started', { port: config.port 
       logger.info('db schema ready');
       return;
     } catch (err) {
-      // Don't block server startup - RAG works without MySQL
-      if (attempt === 1) {
-        logger.warn('MySQL not available, triage features disabled', { error: err.message });
+      if (attempt === 1 || attempt % 10 === 0) {
+        logger.warn('db not ready, retrying', { error: err.message });
       }
-      // Stop retrying after first failure to avoid spam
-      return;
+      await sleep(5000);
     }
   }
 })();

@@ -15,7 +15,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@lancedb/lancedb": "^0.30.0",
+    "@huggingface/inference": "^4.13.23",
+    "@huggingface/transformers": "^4.2.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
