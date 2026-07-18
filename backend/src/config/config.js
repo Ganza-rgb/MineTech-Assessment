@@ -34,6 +34,6 @@ export const config = {
     topK: Number(process.env.RAG_TOP_K) || 4,
     similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.2, // Lowered for more matches
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
-    knowledgeGlob: 'data/*.txt',
+    knowledgeGlob: 'knowledge_base/*.md',
   },
 };

@@ -3,26 +3,21 @@ import { api } from '../api.js';
 import { TicketSkeleton } from './Skeletons.jsx';
 
 const SAMPLES = [
-  'URGENT: our production dashboard is completely down and the whole team is locked out. This is a critical outage, please fix ASAP!',
-  'I was charged twice for my annual plan last week (order INV-99213). I need a refund for the duplicate charge.',
-  "I'd love a feature where I could export the analytics to CSV. That would be really useful for our weekly reports.",
-  'Just wanted to say the new mobile app is awesome, onboarding was super smooth. Great work!',
-  'I forgot my password and the reset email never arrived. Now my account seems locked. Can you help?',
+  'Gas alert flagged at Rutongo Shaft 3 by sensor telemetry node SN-902. Shifter noted ventilation issues. Ops team needs to know if worker RSSB logs are cleared for emergency shift changes.',
+  'Excavator unit EXV-402 has blown its hydraulic lines again during active extraction in Zone A. No sensor errors tripped but the vehicle is completely immobilized blocking the haul path.',
 ];
 
 const CATEGORY_COLORS = {
-  billing: 'bg-violet-100 text-violet-700',
-  technical: 'bg-rose-100 text-rose-700',
-  account: 'bg-sky-100 text-sky-700',
-  feature_request: 'bg-emerald-100 text-emerald-700',
-  feedback: 'bg-amber-100 text-amber-700',
-  other: 'bg-slate-100 text-slate-700',
+  'Occupational Safety': 'bg-red-100 text-red-700',
+  'Fleet Equipment': 'bg-amber-100 text-amber-700',
+  'Regulatory Compliance': 'bg-indigo-100 text-indigo-700',
+  'Geology & Lab': 'bg-emerald-100 text-emerald-700',
 };
 const PRIORITY_COLORS = {
-  urgent: 'bg-red-600 text-white',
-  high: 'bg-orange-500 text-white',
-  medium: 'bg-yellow-400 text-yellow-900',
-  low: 'bg-slate-300 text-slate-700',
+  Critical: 'bg-red-700 text-white',
+  High: 'bg-orange-600 text-white',
+  Medium: 'bg-yellow-500 text-yellow-900',
+  Low: 'bg-slate-300 text-slate-700',
 };
 
 export default function TriageDashboard() {
@@ -157,19 +152,19 @@ export default function TriageDashboard() {
           <table className="w-full table-fixed text-left text-sm">
             <colgroup>
               <col className="w-12" />
-              <col className="w-28" />
+              <col className="w-36" />
               <col className="w-16" />
+              <col className="w-28" />
               <col className="w-auto" />
-              <col className="w-14" />
-              <col className="w-32" />
+              <col className="w-28" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-white text-xs uppercase text-slate-400">
               <tr>
                 <th className="py-2 pr-2">#</th>
                 <th className="py-2 pr-2">Category</th>
-                <th className="py-2 pr-2">Pri</th>
-                <th className="py-2 pr-2">Summary</th>
-                <th className="py-2 pr-2">Conf</th>
+                <th className="py-2 pr-2">Priority</th>
+                <th className="py-2 pr-2">Equipment</th>
+                <th className="py-2 pr-2">Suggested Reply</th>
                 <th className="py-2 pr-2">Status</th>
               </tr>
             </thead>
@@ -204,26 +199,28 @@ export default function TriageDashboard() {
 }
 
 function ResultCard({ result }) {
+  const fields = result.extracted_fields || {};
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
       <div className="mb-2 flex items-center gap-2">
-        <Badge className={CATEGORY_COLORS[result.category] || CATEGORY_COLORS.other}>
+        <Badge className={CATEGORY_COLORS[result.category] || 'bg-slate-100 text-slate-700'}>
           {result.category}
         </Badge>
-        <Badge className={PRIORITY_COLORS[result.priority] || PRIORITY_COLORS.low}>
+        <Badge className={PRIORITY_COLORS[result.priority] || 'bg-slate-300 text-slate-700'}>
           {result.priority}
         </Badge>
-        <span className="text-xs text-slate-500">
-          {result.sentiment} · conf {result.confidence}
-        </span>
         {result.meta?.repaired && (
           <span className="rounded bg-amber-200 px-2 py-0.5 text-xs text-amber-800">
             repaired output
           </span>
         )}
       </div>
-      <p className="text-sm font-medium text-slate-800">{result.summary}</p>
-      <p className="mt-1 text-xs text-slate-500">{result.priority_reason}</p>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <div><span className="font-semibold text-slate-600">Site:</span> {fields.site_location || '—'}</div>
+        <div><span className="font-semibold text-slate-600">Equipment:</span> {fields.equipment_id || '—'}</div>
+        <div><span className="font-semibold text-slate-600">RSSB Clearance:</span> {fields.rssb_clearance_required ? 'Yes' : 'No'}</div>
+        <div><span className="font-semibold text-slate-600">Sensor Codes:</span> {(fields.sensor_error_codes || []).join(', ') || '—'}</div>
+      </div>
       <div className="mt-3 rounded-lg bg-white p-3 text-sm whitespace-pre-wrap text-slate-700">
         {result.suggested_reply}
       </div>
@@ -235,16 +232,7 @@ function ResultCard({ result }) {
 }
 
 function TicketRow({ t, open, onToggle, onStatus }) {
-  let entities = null;
-  if (typeof t.key_entities === 'string') {
-    try {
-      entities = JSON.parse(t.key_entities);
-    } catch {
-      entities = null;
-    }
-  } else {
-    entities = t.key_entities;
-  }
+  const fields = typeof t.extracted_fields === 'string' ? JSON.parse(t.extracted_fields) : t.extracted_fields;
   return (
     <>
       <tr
@@ -253,17 +241,17 @@ function TicketRow({ t, open, onToggle, onStatus }) {
       >
         <td className="py-2 pr-2 text-slate-400">{t.id}</td>
         <td className="py-2 pr-2">
-          <Badge className={CATEGORY_COLORS[t.category] || CATEGORY_COLORS.other}>
+          <Badge className={CATEGORY_COLORS[t.category] || 'bg-slate-100 text-slate-700'}>
             {t.category}
           </Badge>
         </td>
         <td className="py-2 pr-2">
-          <Badge className={PRIORITY_COLORS[t.priority] || PRIORITY_COLORS.low}>
+          <Badge className={PRIORITY_COLORS[t.priority] || 'bg-slate-300 text-slate-700'}>
             {t.priority}
           </Badge>
         </td>
-        <td className="py-2 pr-2 text-slate-600 truncate">{t.summary}</td>
-        <td className="py-2 pr-2 text-slate-400">{t.confidence}</td>
+        <td className="py-2 pr-2 text-slate-600 truncate">{fields?.equipment_id || '—'}</td>
+        <td className="py-2 pr-2 text-slate-600 truncate">{t.suggested_reply || '—'}</td>
         <td className="py-2 pr-2">
           <select
             defaultValue={t.status}
@@ -287,7 +275,7 @@ function TicketRow({ t, open, onToggle, onStatus }) {
               <span className="font-semibold">Suggested reply:</span> {t.suggested_reply}
             </p>
             <p className="text-xs text-slate-500">
-              Entities: {Object.entries(entities || {}).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(', ') || '—'}
+              Site: {fields?.site_location || '—'} · RSSB: {fields?.rssb_clearance_required ? 'Yes' : 'No'} · Sensors: {(fields?.sensor_error_codes || []).join(', ') || '—'}
             </p>
           </td>
         </tr>

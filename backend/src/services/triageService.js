@@ -1,97 +1,68 @@
 import { z } from 'zod';
 import { getAI } from './aiService.js';
 
-/**
- * Use Case 1 — Smart Intake Triage (structured generation).
- *
- * Accepts free-text inbound messages (support tickets / feedback), asks the
- * self-hosted model to emit a single validated JSON object (category,
- * priority, extracted fields, drafted reply), and defends against malformed
- * model output via a parse -> extract -> repair -> heuristic fallback chain.
- */
-
 export const CATEGORIES = [
-  'billing',
-  'technical',
-  'account',
-  'feature_request',
-  'feedback',
-  'other',
+  'Occupational Safety',
+  'Fleet Equipment',
+  'Regulatory Compliance',
+  'Geology & Lab',
 ];
-export const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
-const SYSTEM_PROMPT = `You are an inbound support-intake classifier for a B2B SaaS company.
-Given the customer message, output ONLY a single JSON object (no markdown, no commentary)
+const SYSTEM_PROMPT = `You are an inbound operational intake classifier for MineTech Rwanda, a mining technology company.
+Given the field message, output ONLY a single JSON object (no markdown, no commentary)
 matching this exact schema:
 
 {
   "category": one of ${JSON.stringify(CATEGORIES)},
   "priority": one of ${JSON.stringify(PRIORITIES)},
-  "priority_reason": "short justification for the priority",
-  "sentiment": "positive" | "neutral" | "negative",
-  "language": "BCP-47 language code, e.g. en",
-  "key_entities": {
-    "product": string or null,
-    "email": string or null,
-    "order_id": string or null,
-    "customer_name": string or null
+  "extracted_fields": {
+    "site_location": "string — mine site or shaft name, e.g. Rutongo, Rwamagana",
+    "equipment_id": "string — asset tag or unit ID, e.g. EXV-402, SN-902",
+    "rssb_clearance_required": "boolean — true if RSSB worker clearance is needed",
+    "sensor_error_codes": ["array of sensor/telemetry error codes if mentioned, else empty array"]
   },
-  "summary": "one sentence, <= 120 chars",
-  "suggested_reply": "a short, empathetic draft reply the agent can edit",
-  "confidence": number between 0 and 1
+  "suggested_reply": "a short, professional draft reply the ops team can edit"
 }
 
 Priority guidance:
-- urgent: explicit urgency, outage, security, or locked-out / cannot access.
-- high: broken/failing capability, data or financial loss.
-- medium: actionable but not time-critical (e.g. billing questions).
-- low: general feedback, thanks, minor asks.
-Extract key_entities only when clearly present. The suggested_reply must be professional,
-always use "We" or "Our team" (NOT "I"), reference the customer by email username if available, and never invent facts.`;
+- Critical: immediate safety risk, active emergency, life-threatening, gas alert, structural failure.
+- High: equipment failure blocking operations, regulatory violation imminent, evacuation required.
+- Medium: maintenance needed, compliance documentation missing, non-urgent safety concern.
+- Low: general inquiry, minor issue, non-urgent request.
+The suggested_reply must be professional, concise, and grounded in MineTech operational context.`;
 
 const REPAIR_PROMPT = `Your previous output was not valid JSON. Re-emit the same analysis as a single,
 strictly valid JSON object and nothing else.`;
 
-/* ---- validation / coercion -------------------------------------- */
-
 const TriageSchema = z.object({
-  category: z.string().transform((v) => (CATEGORIES.includes(v) ? v : 'other')),
-  priority: z.string().transform((v) => (PRIORITIES.includes(v) ? v : 'low')),
-  priority_reason: z.string().default(''),
-  sentiment: z.string().transform((v) =>
-    ['positive', 'neutral', 'negative'].includes(v) ? v : 'neutral'
-  ),
-  language: z.string().default('en'),
-  key_entities: z
-    .object({
-      product: z.string().nullable().optional(),
-      email: z.string().nullable().optional(),
-      order_id: z.string().nullable().optional(),
-      customer_name: z.string().nullable().optional(),
-    })
-    .default({}),
-  summary: z.string().default(''),
+  category: z.string().transform((v) => (CATEGORIES.includes(v) ? v : 'Other')),
+  priority: z.string().transform((v) => (PRIORITIES.includes(v) ? v : 'Medium')),
+  extracted_fields: z.object({
+    site_location: z.string().default('Unknown'),
+    equipment_id: z.string().default('N/A'),
+    rssb_clearance_required: z.boolean().default(false),
+    sensor_error_codes: z.array(z.string()).default([]),
+  }).default({
+    site_location: 'Unknown',
+    equipment_id: 'N/A',
+    rssb_clearance_required: false,
+    sensor_error_codes: [],
+  }),
   suggested_reply: z.string().default(''),
-  confidence: z.number().min(0).max(1).default(0.5),
 });
 
 function validate(obj) {
   const parsed = TriageSchema.safeParse(obj);
   if (parsed.success) return { value: parsed.data, repaired: false };
-  // Coerce the most common failures rather than discard the whole object.
   const cleaned = { ...obj };
-  if (typeof cleaned.key_entities !== 'object' || cleaned.key_entities === null) {
-    cleaned.key_entities = {};
-  }
-  if (typeof cleaned.confidence !== 'number' || Number.isNaN(cleaned.confidence)) {
-    cleaned.confidence = 0.5;
+  if (typeof cleaned.extracted_fields !== 'object' || cleaned.extracted_fields === null) {
+    cleaned.extracted_fields = {};
   }
   const second = TriageSchema.safeParse(cleaned);
   if (second.success) return { value: second.data, repaired: true };
   return { value: null, repaired: true };
 }
-
-/* ---- malformed-output handling ---------------------------------- */
 
 function extractJson(text) {
   if (!text) return null;
@@ -113,58 +84,44 @@ function extractJson(text) {
   }
 }
 
-/**
- * Heuristic fallback used only when the model never produces parseable JSON.
- * Keeps the pipeline resilient so a single bad generation can't break intake.
- */
 function heuristic(text) {
   const lc = (text || '').toLowerCase();
   const cat = CATEGORIES.find((c) =>
-    c === 'billing'
-      ? ['invoice', 'payment', 'refund', 'charge', 'bill', 'subscription'].some((k) => lc.includes(k))
-      : c === 'technical'
-        ? ['error', 'bug', 'crash', 'broken', 'not working', 'fail'].some((k) => lc.includes(k))
-        : c === 'account'
-          ? ['password', 'login', 'account', 'sign in', '2fa'].some((k) => lc.includes(k))
-          : c === 'feature_request'
-            ? ['feature', 'suggest', 'add', 'idea'].some((k) => lc.includes(k))
-            : c === 'feedback'
-              ? ['love', 'great', 'thanks', 'terrible', 'hate'].some((k) => lc.includes(k))
-              : false
-  ) || 'other';
-  const priority = /urgent|asap|critical|outage|locked out|security/.test(lc)
-    ? 'urgent'
-    : /broken|error|failing|lost|missing/.test(lc)
-      ? 'high'
-      : cat === 'billing'
-        ? 'medium'
-        : 'low';
+    c === 'Occupational Safety'
+      ? ['gas', 'ventilation', 'shaft', 'evacuat', 'injury', 'safety', 'sensor', 'alert', 'emergency'].some((k) => lc.includes(k))
+      : c === 'Fleet Equipment'
+        ? ['excavator', 'hydraulic', 'truck', 'haul', 'equipment', 'unit', ' immobilized', 'blocked'].some((k) => lc.includes(k))
+        : c === 'Regulatory Compliance'
+          ? ['rssb', 'compliance', 'clearance', 'regulatory', 'permit', 'audit'].some((k) => lc.includes(k))
+          : c === 'Geology & Lab'
+            ? ['sample', 'assay', 'core', 'geolog', 'lab', 'drill'].some((k) => lc.includes(k))
+            : false
+  ) || 'Other';
+  const priority = /gas|evacuat|emergency|critical|outage|structural|fracture/.test(lc)
+    ? 'Critical'
+    : /broken|immobilized|blocked|failure|violation/.test(lc)
+      ? 'High'
+      : cat === 'Regulatory Compliance'
+        ? 'Medium'
+        : 'Low';
   return {
     category: cat,
     priority,
-    priority_reason: 'Fallback heuristic (model output was unparseable).',
-    sentiment: 'neutral',
-    language: 'en',
-    key_entities: {
-      product: null,
-      email: (lc.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i) || [])[0] || null,
-      order_id: null,
-      customer_name: null,
+    extracted_fields: {
+      site_location: (lc.match(/rutongo|rwamagana|zone [a-z]|shaft \d+/i) || [])[0] || 'Unknown',
+      equipment_id: (lc.match(/exv-\d+|sn-\d+|unit [a-z0-9-]+/i) || [])[0] || 'N/A',
+      rssb_clearance_required: /rssb|clearance/.test(lc),
+      sensor_error_codes: (lc.match(/err-\d+/g) || []),
     },
-    summary: (text || '').trim().slice(0, 120),
-    suggested_reply: 'Thanks for reaching out — we will review your request and follow up shortly.',
-    confidence: 0.3,
+    suggested_reply: 'Ops team has been notified. Please stand by for coordinated response.',
   };
 }
-
-/* ---- public API -------------------------------------------------- */
 
 export async function triage(rawText, { source = 'api' } = {}) {
   const ai = await getAI();
   let raw = await ai.generate({
     system: SYSTEM_PROMPT,
     prompt: rawText,
-    responseFormat: { type: 'json' },
     temperature: 0.2,
   });
 
@@ -172,7 +129,6 @@ export async function triage(rawText, { source = 'api' } = {}) {
   let repaired = false;
 
   if (!obj) {
-    // One repair attempt: ask the model to reformat.
     const reparsed = await ai.generate({
       system: SYSTEM_PROMPT,
       prompt: `${REPAIR_PROMPT}\n\nOriginal message:\n${rawText}`,

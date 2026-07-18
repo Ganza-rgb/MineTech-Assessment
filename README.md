@@ -1,13 +1,13 @@
 # Minetech Assessment — Self-Hosted LLM: Intake Triage + Knowledge Assistant
 
-A full-stack app that serves an open-source LLM via **self-hosted Ollama** (no external APIs) and builds two features on top of it — no OpenAI/Anthropic/Gemini, no money spent:
+A full-stack app that serves an open-source LLM via **self-hosted Ollama** (no external APIs) and builds two features on top of it — no OpenAI/Anthropic/Gemini, no money spent. Designed for **MineTech Rwanda**, an AI-native ERP and deep-tech intelligence platform for African mining operations.
 
-1. **Smart Intake Triage** — turn free-text tickets/feedback into validated, structured JSON (category, priority, extracted fields, drafted reply) shown in a filterable dashboard. Malformed model output is handled gracefully.
-2. **Knowledge Assistant** — answer questions with a self-hosted open-source LLM. Retrieves relevant context from a LanceDB-backed knowledge base and grounds the answer with citations. Clearly indicates when the answer is not in the knowledge base.
+1. **Smart Intake Triage** — turn free-text field messages into validated, structured JSON (category, priority, extracted operational fields, drafted reply) shown in a filterable dashboard. Malformed model output is handled gracefully.
+2. **Knowledge Assistant** — answer questions with a self-hosted open-source LLM. Retrieves relevant context from a MySQL-backed knowledge base and grounds the answer with citations. Clearly indicates when the answer is not in the knowledge base.
 
-> **Stack:** Node + Express · React + Tailwind (Vite) · MySQL · **Ollama (self-hosted)** · **LanceDB**
+> **Stack:** Node + Express · React + Tailwind (Vite) · MySQL · **Ollama (self-hosted)**
 >
-> **Generation Model:** Qwen2.5-0.5B (via Ollama) — runs completely free on local hardware
+> **Generation Model:** Llama 3.2 3B (via Ollama) — runs completely free on local hardware
 >
 > **Embedding Model:** nomic-embed-text (768-dim) — dedicated embedding model for RAG
 
@@ -20,7 +20,7 @@ A full-stack app that serves an open-source LLM via **self-hosted Ollama** (no e
 - **Ollama** installed and running (https://ollama.com/download)
   - Pull the models:
     ```bash
-    ollama pull qwen2.5:0.5b
+    ollama pull llama3.2:3b
     ollama pull nomic-embed-text
     ```
   - Verify they're running: `ollama list` should show both models
@@ -65,18 +65,18 @@ LLM_MODE=ollama
 
 # Ollama Settings
 OLLAMA_ENDPOINT=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:0.5b                 # Text generation model
+OLLAMA_MODEL=llama3.2:3b                 # Text generation model
 OLLAMA_EMBED_MODEL=nomic-embed-text        # Embedding model (768-dim)
 
 # Generation parameters
-LLM_TEMP=0.1                              # Low temp for factual consistency
+LLM_TEMP=0.7
 LLM_MAX_TOKENS=256
 
-# RAG Settings (LanceDB)
+# RAG Settings
 RAG_CHUNK_SIZE=600
 RAG_CHUNK_OVERLAP=100
-RAG_TOP_K=5
-RAG_SIM_THRESHOLD=0.15                    # Minimum similarity threshold
+RAG_TOP_K=4
+RAG_SIM_THRESHOLD=0.2
 ```
 
 ---
@@ -129,14 +129,12 @@ Open the frontend URL (default http://localhost:5173).
 ### Knowledge Assistant (RAG)
 1. Switch to the Knowledge Assistant tab
 2. Ask a question about MineTech operations, safety, technical support, billing, or account access
-3. View the answer with the **4-Layer Response Design**:
-   - **Answer Layer** — Generated text with inline citation markers [1], [2]
-   - **Citation Labels Layer** — Clickable chips showing source documents
-   - **Context Preview Dropdown** — Toggle to see raw source chunks from LanceDB
-   - **Trace Metadata Layer** — Latency, confidence score, grounded status
+3. View the answer with a clean response UI:
+   - **Answer Layer** — Generated text with clear readability
+   - **Citation Pills Layer** — Horizontal row of rounded badges with document icons
+   - **Fallback State** — Neutral gray bubble when answer is not in the knowledge base
 4. If the question is outside the knowledge base:
-   - Shows "Not in Knowledge Base" warning banner
-   - `grounded: false` indicator
+   - Shows a muted fallback response: "I don't have info about that."
    - No citations displayed
 5. Click suggestion buttons for common queries
 6. Add your own documents:
@@ -168,35 +166,35 @@ Open the frontend URL (default http://localhost:5173).
 │                        FRONTEND (React + Tailwind)              │
 │  ┌─────────────────────┐    ┌─────────────────────────────────┐ │
 │  │  Triage Dashboard   │    │    Knowledge Assistant (RAG)   │ │
-│  │  - Filterable table │    │    - 4-Layer Response UI        │ │
-│  │  - Status workflow  │    │    - Citation chips             │ │
-│  │  - JSON inspector   │    │    - Context dropdown           │ │
+│  │  - Filterable table │    │    - Clean citation pills      │ │
+│  │  - Status workflow  │    │    - Neutral fallback state    │ │
+│  │  - JSON inspector   │    │    - Hover citation tooltips   │ │
 │  └─────────────────────┘    └─────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      BACKEND (Express + Node.js)                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐   │
-│  │ aiService    │  │ triageService│  │ ragService (LanceDB) │   │
-│  │ - generate() │  │ - parse JSON │  │ - vectorSearch()     │   │
-│  │ - embed()    │  │ - self-heal  │  │ - cosineSimilarity()│   │
+│  │ aiService    │  │ triageService│  │ ragService (MySQL)    │   │
+│  │ - generate() │  │ - parse JSON │  │ - cosineSimilarity() │   │
+│  │ - embed()    │  │ - self-heal  │  │ - chunking + ingest  │   │
 │  └──────────────┘  └──────────────┘  └───────────────────────┘   │
-│                              │              │                    │
-│                     ┌─────────┴──────────────┴──────────────┐    │
-│                     │            DATA LAYER                 │    │
-│                     │  ┌─────────────┐  ┌───────────────┐   │    │
-│                     │  │   MySQL     │  │   LanceDB    │   │    │
-│                     │  │ (tickets)   │  │  (vectors)    │   │    │
-│                     │  └─────────────┘  └───────────────┘   │    │
-│                     └─────────────────────────────────────────┘    │
+│                              │                                   │
+│                     ┌─────────┴──────────────────────────┐      │
+│                     │            DATA LAYER             │      │
+│                     │  ┌─────────────────────────────┐   │      │
+│                     │  │          MySQL              │   │      │
+│                     │  │  (tickets + chunks/vectors) │   │      │
+│                     │  └─────────────────────────────┘   │      │
+│                     └────────────────────────────────────┘      │
 └─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     OLLAMA (Self-Hosted)                        │
 │  ┌──────────────────────────┐  ┌────────────────────────────┐  │
-│  │ qwen2.5:0.5b             │  │ nomic-embed-text           │  │
+│  │ llama3.2:3b              │  │ nomic-embed-text           │  │
 │  │ - Text generation        │  │ - 768-dim embeddings       │  │
 │  │ - Structured JSON       │  │ - Semantic search          │  │
 │  │ - System prompts        │  │ - Vector similarity       │  │
@@ -208,8 +206,8 @@ Open the frontend URL (default http://localhost:5173).
 
 **RAG Query Flow:**
 ```
-User Query → nomic-embed-text → LanceDB Vector Search → Top-K Chunks → 
-Qwen2.5 + Context → Grounded Answer with Citations → Frontend Display
+User Query → nomic-embed-text → MySQL Cosine Similarity → Top-K Chunks → 
+Llama 3.2 3B + Context → Grounded Answer with Citations → Frontend Display
 ```
 
 ---
@@ -217,16 +215,10 @@ Qwen2.5 + Context → Grounded Answer with Citations → Frontend Display
 ## 8. Senior-Level RAG Features Implemented
 
 ### Hallucination Prevention
-- **Relevance Gate**: similarity threshold (0.15) filters out low-quality matches
+- **Relevance Gate**: similarity threshold (0.2) filters out low-quality matches
 - **Closed-Domain Prompt**: Model restricted to ONLY use provided context
 - **"Don't Know" Fallback**: Explicit response when no relevant context found
-- **Citation Validation**: Verifies model cites sources correctly
-
-### Data Verification (4-Layer UI)
-1. **Answer Layer** — Text with inline [1], [2] footnotes
-2. **Citation Labels** — Clickable source document chips
-3. **Context Preview** — Collapsible raw source chunks
-4. **Trace Metadata** — Latency, confidence, grounded status
+- **Citations**: Verifiable source document pills
 
 ### Self-Healing JSON Parsing
 - Triage service handles malformed LLM output gracefully
@@ -236,9 +228,8 @@ Qwen2.5 + Context → Grounded Answer with Citations → Frontend Display
 
 ## 9. Notes & Limitations
 
-- **LanceDB** stores vector embeddings (simpler than MySQL for vectors)
-- **MySQL** stores triage tickets (relational data)
-- Switching the Ollama model requires re-running `npm run ingest`
+- **MySQL** stores both triage tickets and RAG chunk embeddings (JSON columns)
+- **Ollama** serves both the generation model (`llama3.2:3b`) and the embedding model (`nomic-embed-text`)
 - The `ollama` service must be running for the app to function
 - First model load may take 10-20 seconds as Ollama loads it into memory
 - Subsequent requests are fast (typically 1-3 seconds for this model size)
@@ -248,9 +239,8 @@ Qwen2.5 + Context → Grounded Answer with Citations → Frontend Display
 ## 10. Decision Rationale
 
 See [DECISION_MEMO.md](./DECISION_MEMO.md) for detailed explanation of:
-- Model choice (Qwen2.5-0.5B via Ollama)
-- Embedding model (nomic-embed-text)
-- LanceDB for vector storage (serverless, file-based)
+- Model choice (Llama 3.2 3B via Ollama)
+- Embedding model (nomic-embed-text via Ollama)
 - Retrieval strategy (cosine similarity with threshold filtering)
 - Hallucination mitigation (strict prompting, relevance gating)
 - Latency vs. hardware trade-offs (optimized for free-tier local execution)
