@@ -32,7 +32,7 @@ export const config = {
     chunkSize: Number(process.env.RAG_CHUNK_SIZE) || 600,
     chunkOverlap: Number(process.env.RAG_CHUNK_OVERLAP) || 100,
     topK: Number(process.env.RAG_TOP_K) || 4,
-    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.2, // Lowered for more matches
+    similarityThreshold: Number(process.env.RAG_SIM_THRESHOLD) || 0.55, // Lowered for more matches
     lexicalWeight: Number(process.env.RAG_LEXICAL_WEIGHT) || 0.3,
     knowledgeGlob: 'knowledge_base/*.md',
   },

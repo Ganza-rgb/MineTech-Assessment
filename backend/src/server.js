@@ -57,14 +57,20 @@ app.post('/api/triage', async (req, res) => {
     const result = await triage(parsed.text, { source: parsed.source || 'api' });
     const [ins] = await pool.query(
       `INSERT INTO tickets
-         (raw_text, category, priority, extracted_fields, suggested_reply, status, source, meta)
-        VALUES (?, ?, ?, ?, ?, 'new', ?, ?)`,
+         (raw_text, category, priority, priority_reason, sentiment, language,
+          key_entities, summary, suggested_reply, confidence, status, source, meta)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`,
       [
         parsed.text,
         result.category,
         result.priority,
-        JSON.stringify(result.extracted_fields || {}),
+        result.priority_reason,
+        result.sentiment,
+        result.language,
+        JSON.stringify(result.key_entities || {}),
+        result.summary,
         result.suggested_reply,
+        result.confidence,
         parsed.source || 'api',
         JSON.stringify(result.meta || {}),
       ]
@@ -98,7 +104,7 @@ app.get('/api/tickets', async (req, res) => {
     const [rows] = await pool.query(sql, params);
     const duration = Date.now() - start;
     logger.info('tickets listed', { reqId: req.id, count: rows.length, duration });
-    res.json(rows.map((r) => ({ ...r, extracted_fields: safeJson(r.extracted_fields), meta: safeJson(r.meta) })));
+    res.json(rows.map((r) => ({ ...r, key_entities: safeJson(r.key_entities), meta: safeJson(r.meta) })));
   } catch (err) {
     logger.error('tickets list failed', { reqId: req.id, error: err.message });
     res.status(500).json({ error: 'tickets list failed', detail: err.message });

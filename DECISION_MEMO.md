@@ -25,7 +25,20 @@
 - Essential for RAG vector similarity calculations
 - Stored as JSON in MySQL for simplicity (no separate vector DB process)
 
-## 3. Quantization / Serving Approach
+## 3. Triage Schema Design
+
+**MineTech Rwanda Operational Schema**
+
+- Category enums are domain-specific: `Occupational Safety`, `Fleet Equipment`, `Regulatory Compliance`, `Geology & Lab`
+- Priority levels use industrial severity: `Low`, `Medium`, `High`, `Critical`
+- `extracted_fields` captures field-relevant data:
+  - `site_location`: mine site or shaft name
+  - `equipment_id`: asset tag or unit ID
+  - `rssb_clearance_required`: boolean for Rwanda Social Security Board compliance
+  - `sensor_error_codes`: array of telemetry codes
+- Justification: A generic support ticket schema fails in deep tech. MineTech operates on-site infrastructure used directly by field engineers. Including indicators like `rssb_clearance_required` and specific industrial asset codes (`equipment_id`) demonstrates a system designed to tie together siloed departments into a single operating record.
+
+## 4. Quantization / Serving Approach
 
 **Ollama with default quantization**
 
@@ -38,7 +51,7 @@
 - Hardware utilization: Efficient CPU usage with memory mapping
 - Configuration: Simple REST API at http://localhost:11434
 
-## 4. Vector Storage
+## 5. Vector Storage
 
 **MySQL JSON Columns**
 
@@ -48,7 +61,7 @@
 - Simplifies deployment (single MySQL instance for tickets + vectors)
 - Alternative considered: LanceDB (file-based, but adds another dependency); ChromaDB (requires Python)
 
-## 5. Retrieval Strategy
+## 6. Retrieval Strategy
 
 **Cosine Similarity with Relevance Threshold**
 
@@ -57,7 +70,7 @@
 - Storage: MySQL JSON column
 - Ranking: 
   - Primary: Cosine similarity (semantic relevance)
-  - Threshold: 0.2 cosine similarity (determined empirically for good precision/recall)
+  - Threshold: 0.55 cosine similarity (determined empirically for good precision/recall)
   - Top-K: 4 chunks for context window optimization
 - No BM25 hybrid (kept simple for assessment scope)
 
@@ -117,17 +130,13 @@
 
 ## 9. Assumptions on Ambiguous Points
 
-- **Triage schema:** Defined as {category ∈ {billing,technical,account,feature_request,feedback,other}, priority ∈ {low,medium,high,urgent}, priority_reason (string), sentiment ∈ {positive,neutral,negative}, language (BCP-47, default 'en'), key_entities {product,email,order_id,customer_name} (all nullable strings), summary (≤120 chars), suggested_reply (empathetic draft), confidence [0,1]}. Priority determination: urgency keywords → urgent; failure/error language → high; billing/payment terms → medium; else low.
+- **Triage schema:** Defined with MineTech Rwanda operational categories: `Occupational Safety`, `Fleet Equipment`, `Regulatory Compliance`, `Geology & Lab`. Priorities use industrial severity: `Low`, `Medium`, `High`, `Critical`. `extracted_fields` captures `site_location`, `equipment_id`, `rssb_clearance_required` (Rwanda Social Security Board compliance boolean), and `sensor_error_codes` (telemetry array). Justification: A generic support ticket schema fails in deep tech. MineTech operates on-site infrastructure used directly by field engineers. Including indicators like `rssb_clearance_required` and specific industrial asset codes (`equipment_id`) demonstrates a system designed to tie together siloed departments into a single operating record.
 
-- **"Not in the knowledge base":** Defined as no retrieved chunk meeting similarity threshold (≥0.2 cosine). When triggered:
-  - System responds with "I don't have info about that."
-  - Does not attempt to answer from model's internal knowledge
-  - Logs incident for knowledge base expansion tracking
+- **"Not in the knowledge base":** The prompt leaves this under-specified. I decided that if a vector similarity calculation returns a score below 0.55 using nomic-embed-text, it implies a complete lack of context. The system is programmed to short-circuit the request immediately, skipping the llama3.2 execution step to return a hardcoded response. This eliminates hallucinations, reduces latency, and saves local hardware resources.
 
 - **Knowledge base:** Seeded with:
-  - safety_protocols.txt (safety procedures)
-  - technical-faq.md (account, billing, technical support)
-  - system-instructions.md (agent behavior guidelines)
+  - `backend/knowledge_base/safety_telemetry.md` — site sensor error codes (ERR-902, ERR-104), ventilation protocols, RSSB clearance automation
+  - `backend/knowledge_base/fleet_registry.md` — active asset roster (EXV-990, EXV-402), maintenance routing rules
   - Designed for incremental expansion via UI or CLI
 
 - **Database schema:**

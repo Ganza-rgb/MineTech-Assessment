@@ -76,7 +76,7 @@ LLM_MAX_TOKENS=256
 RAG_CHUNK_SIZE=600
 RAG_CHUNK_OVERLAP=100
 RAG_TOP_K=4
-RAG_SIM_THRESHOLD=0.2
+RAG_SIM_THRESHOLD=0.55
 ```
 
 ---
@@ -114,21 +114,20 @@ Open the frontend URL (default http://localhost:5173).
 ## 5. Use the features
 
 ### Smart Intake Triage
-1. Paste a message (or click a *Sample*) in the Triage tab
+1. Paste a field message (or click a *Sample*) in the Triage tab
 2. Hit **Run triage**
 3. View structured JSON output with:
-   - Category (billing/technical/account/feature_request/feedback/other)
-   - Priority (low/medium/high/urgent) with justification
-   - Extracted entities (email, order_id, etc.)
-   - Summary and suggested reply
-   - Confidence score
+   - Category (Occupational Safety / Fleet Equipment / Regulatory Compliance / Geology & Lab)
+   - Priority (Low / Medium / High / Critical)
+   - Extracted operational fields (site_location, equipment_id, RSSB clearance, sensor error codes)
+   - Suggested reply
 4. The result appears in the dashboard table below
 5. Filter by category, priority, status, or search keyword
 6. Update ticket status inline (new → in-progress → resolved)
 
 ### Knowledge Assistant (RAG)
 1. Switch to the Knowledge Assistant tab
-2. Ask a question about MineTech operations, safety, technical support, billing, or account access
+2. Ask a question about MineTech Rwanda operations, safety protocols, fleet equipment, regulatory compliance, or geology procedures.
 3. View the answer with a clean response UI:
    - **Answer Layer** — Generated text with clear readability
    - **Citation Pills Layer** — Horizontal row of rounded badges with document icons
@@ -138,7 +137,7 @@ Open the frontend URL (default http://localhost:5173).
    - No citations displayed
 5. Click suggestion buttons for common queries
 6. Add your own documents:
-   - Place `.txt` or `.md` files in `backend/data/`
+   - Place `.md` files in `backend/knowledge_base/`
    - Click **Re-ingest KB** in the UI, or run `npm run ingest` in backend
 
 ---
@@ -153,7 +152,7 @@ Open the frontend URL (default http://localhost:5173).
 | PATCH | `/api/tickets/:id` | Update ticket status |
 | POST | `/api/rag/ask` | Answer + citations (grounded RAG) |
 | POST | `/api/rag/retrieve` | Raw retrieved passages (debug) |
-| POST | `/api/rag/ingest` | Re-ingest `backend/data/*.txt` |
+| POST | `/api/rag/ingest` | Re-ingest `backend/knowledge_base/*.md` |
 | POST | `/api/rag/ingest/text` | Ingest an arbitrary pasted doc |
 | GET | `/api/rag/stats` | Knowledge base statistics |
 
@@ -215,9 +214,10 @@ Llama 3.2 3B + Context → Grounded Answer with Citations → Frontend Display
 ## 8. Senior-Level RAG Features Implemented
 
 ### Hallucination Prevention
-- **Relevance Gate**: similarity threshold (0.2) filters out low-quality matches
+- **Relevance Gate**: similarity threshold (0.55) filters out low-quality matches
 - **Closed-Domain Prompt**: Model restricted to ONLY use provided context
 - **"Don't Know" Fallback**: Explicit response when no relevant context found
+- **Short-Circuit Logic**: Skips LLM execution entirely when no chunks pass threshold, reducing latency and hallucination risk
 - **Citations**: Verifiable source document pills
 
 ### Self-Healing JSON Parsing
@@ -230,6 +230,7 @@ Llama 3.2 3B + Context → Grounded Answer with Citations → Frontend Display
 
 - **MySQL** stores both triage tickets and RAG chunk embeddings (JSON columns)
 - **Ollama** serves both the generation model (`llama3.2:3b`) and the embedding model (`nomic-embed-text`)
+- Knowledge base documents are stored in `backend/knowledge_base/` as markdown files
 - The `ollama` service must be running for the app to function
 - First model load may take 10-20 seconds as Ollama loads it into memory
 - Subsequent requests are fast (typically 1-3 seconds for this model size)
@@ -241,7 +242,8 @@ Llama 3.2 3B + Context → Grounded Answer with Citations → Frontend Display
 See [DECISION_MEMO.md](./DECISION_MEMO.md) for detailed explanation of:
 - Model choice (Llama 3.2 3B via Ollama)
 - Embedding model (nomic-embed-text via Ollama)
-- Retrieval strategy (cosine similarity with threshold filtering)
+- Triage schema design (MineTech Rwanda operational fields)
+- Retrieval strategy (cosine similarity with 0.55 threshold + short-circuit)
 - Hallucination mitigation (strict prompting, relevance gating)
 - Latency vs. hardware trade-offs (optimized for free-tier local execution)
 
