@@ -76,16 +76,12 @@ export default function KnowledgeAssistant() {
   };
 
   return (
-    <div className="flex h-[85vh] min-h-[32rem] max-h-[52rem] flex-col rounded-2xl border border-[#EAE6DF] bg-[#F7F4EF] shadow-sm">
+    <div className="flex h-[85vh] min-h-[32rem] max-h-[5rem] flex-col rounded-2xl border border-[#EAE6DF] bg-[#F7F4EF] shadow-sm">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-[#EAE6DF] bg-white px-5 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#5C2E0B] text-white">
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m12.728 0l-.707.707M12 21a9 9 0 100-18 9 9 0 000 18z" />
-          </svg>
-        </div>
+      <div className="flex items-center gap-3 border-b border-[#EAE6DF] bg-white px-5 py-3 rounded-t-xl">
+
         <div>
-          <h1 className="text-sm font-semibold text-[#252320] tracking-tight">Knowledge Assistant</h1>
+
           <p className="text-xs text-[#6E6A63] tracking-wide leading-relaxed">Ask questions about MineTech operations, safety, or equipment.</p>
         </div>
       </div>
@@ -140,7 +136,7 @@ export default function KnowledgeAssistant() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-[#EAE6DF] bg-white px-4 py-3">
+      <div className="border-t border-[#EAE6DF] py-1">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-end gap-2 rounded-2xl border border-[#EAE6DF] bg-[#F7F4EF] px-3 py-2 shadow-sm focus-within:border-[#5C2E0B] focus-within:ring-1 focus-within:ring-[#5C2E0B] transition-colors">
             <textarea
@@ -184,9 +180,6 @@ export default function KnowledgeAssistant() {
               </button>
             )}
           </div>
-          <p className="mt-2 text-center text-[10px] text-[#6E6A63] tracking-wide">
-            Answers are generated from the MineTech Rwanda knowledge base.
-          </p>
         </div>
       </div>
     </div>
