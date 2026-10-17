@@ -1,4 +1,4 @@
-# Minetech Assessment — Self-Hosted LLM: Intake Triage + Knowledge Assistant
+# Minetech Assessment — Self-Hosted LLM: Intake Triage + Knowledge Assistant (RAG)
 
 A full-stack app that serves an open-source LLM via **self-hosted Ollama** (no external APIs) and builds two features on top of it — no OpenAI/Anthropic/Gemini, no money spent. Designed for **MineTech Rwanda**, an AI-native ERP and deep-tech intelligence platform for African mining operations.
 
