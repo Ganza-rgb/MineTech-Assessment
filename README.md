@@ -257,3 +257,6 @@ See [DECISION_MEMO.md](./DECISION_MEMO.md) for detailed explanation of:
 3. Ingest knowledge base (`npm run ingest` in backend)
 4. Start frontend (`npm run dev` in frontend)
 5. Visit http://localhost:5173 and demonstrate both features
+
+**Rules:**
+1. This is assessment based AI-powered RAG solution
