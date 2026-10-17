@@ -13,7 +13,7 @@ A full-stack app that serves an open-source LLM via **self-hosted Ollama** (no e
 
 ---
 
-## 1. Prerequisites
+## 1. Prerequisites and requiremets
 
 - **Node.js 20+** and **npm**
 - **MySQL** (local or remote). The app creates tables automatically on boot.
